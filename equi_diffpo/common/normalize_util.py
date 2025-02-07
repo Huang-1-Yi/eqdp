@@ -2,7 +2,7 @@ from equi_diffpo.model.common.normalizer import SingleFieldLinearNormalizer
 from equi_diffpo.common.pytorch_util import dict_apply, dict_apply_reduce, dict_apply_split
 import numpy as np
 
-
+# 根据统计信息（最大值、最小值等）来生成一个标准化器，将数据线性转换到 [-1, 1] 范围内
 def get_range_normalizer_from_stat(stat, output_max=1, output_min=-1, range_eps=1e-7):
     # -1, 1 normalization
     input_max = stat['max']
