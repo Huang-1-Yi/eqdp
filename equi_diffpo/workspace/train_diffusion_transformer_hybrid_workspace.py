@@ -1,3 +1,9 @@
+"""
+这段代码的核心是通过 TrainDiffusionTransformerHybridWorkspace 类来管理深度学习模型的训练过程，
+涉及了模型初始化、数据加载、训练、验证、EMA模型、学习率调度、检查点保存等多个步骤。
+该类高度依赖配置文件，能够灵活控制训练流程。
+"""
+
 if __name__ == "__main__":
     import sys
     import os
@@ -35,6 +41,13 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
     include_keys = ['global_step', 'epoch']
 
     def __init__(self, cfg: OmegaConf, output_dir=None):
+        """
+        初始化配置：首先通过 super().__init__() 初始化父类，并根据配置文件设置随机种子。
+        模型配置：根据 cfg.policy 动态实例化 DiffusionTransformerHybridImagePolicy 模型。
+        EMA模型：如果配置启用了 EMA（指数移动平均），则复制模型生成 EMA 模型。
+        优化器：使用 model.get_optimizer() 获取优化器。
+        训练状态：初始化训练的步数（global_step）和轮次（epoch）
+        """
         super().__init__(cfg, output_dir=output_dir)
 
         # set seed
@@ -52,14 +65,28 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
 
         # configure training state
         self.optimizer = self.model.get_optimizer(**cfg.optimizer)
+        """
+        将优化器的实例化过程交给了模型本身来处理，模型内部定义了优化器的创建方法。这意味着：
+        优势：
+            模型和优化器的配置耦合较为紧密，便于在模型类中集中管理优化器的创建。
+            如果优化器的配置与模型的某些属性（如学习率、权重衰减等）紧密相关，能够更方便地在模型内进行管理。
+            可以在模型中根据需要做一些优化器的定制化设置，如初始化策略等。
+        劣势：
+            优化器配置与模型的实现紧密耦合，降低了灵活性。如果想要替换优化器或更改优化器的配置，需要修改模型内部的代码。
+            配置文件中的优化器参数较为“隐藏”，没有明确的外部配置界面。
+        """
 
         # configure training state
         self.global_step = 0
         self.epoch = 0
 
     def run(self):
+        """
+        恢复训练：如果 cfg.training.resume 为 True，会加载之前的模型检查点，恢复训练进度
+        """
         cfg = copy.deepcopy(self.cfg)
 
+        # 恢复训练：如果 cfg.training.resume 为 True，会加载之前的模型检查点，恢复训练进度
         # resume training
         if cfg.training.resume:
             lastest_ckpt_path = self.get_checkpoint_path()
@@ -68,7 +95,8 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
                 self.load_checkpoint(path=lastest_ckpt_path)
                 self.epoch += 1
                 self.global_step += 1
-
+        
+        # 数据集配置：根据配置实例化数据集对象，并使用 DataLoader 创建训练和验证数据加载器
         # configure dataset
         dataset: BaseImageDataset
         dataset = hydra.utils.instantiate(cfg.task.dataset)
@@ -84,6 +112,7 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
         if cfg.training.use_ema:
             self.ema_model.set_normalizer(normalizer)
 
+        # 学习率调度器：使用配置中的学习率调度器设置优化器的学习率更新规则。
         # configure lr scheduler
         lr_scheduler = get_scheduler(
             cfg.training.lr_scheduler,
@@ -97,6 +126,7 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
             last_epoch=self.global_step-1
         )
 
+        # EMA模型：如果配置启用了 EMA，通过 hydra.utils.instantiate 实例化 EMA 模型
         # configure ema
         ema: EMAModel = None
         if cfg.training.use_ema:
@@ -151,6 +181,8 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
 
         # training loop
         log_path = os.path.join(self.output_dir, 'logs.json.txt')
+        # 训练循环：遍历数据集中的每个批次，计算损失并执行反向传播和优化。
+        # 每经过 gradient_accumulate_every 步后进行一次优化器更新
         with JsonLogger(log_path) as json_logger:
             while self.epoch < cfg.training.num_epochs:
                 step_log = dict()
@@ -218,6 +250,7 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
                     # log all
                     step_log.update(runner_log)
 
+                # 验证：每过一段时间对模型进行验证，计算并记录验证集的损失
                 # run validation
                 if (self.epoch % cfg.training.val_every) == 0:
                     with torch.no_grad():
@@ -236,6 +269,7 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
                             # log epoch average validation loss
                             step_log['val_loss'] = val_loss
 
+                # 保存检查点：每个周期保存模型检查点，以便恢复训练
                 # run diffusion sampling on a training batch
                 if (self.epoch % cfg.training.sample_every) == 0:
                     with torch.no_grad():

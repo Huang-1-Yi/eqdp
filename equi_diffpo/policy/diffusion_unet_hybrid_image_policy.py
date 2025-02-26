@@ -1,3 +1,23 @@
+"""
+架构设计
+    观测编码器：使用robomimic的CNN（可能含CropRandomizer）提取图像特征，支持替换BatchNorm为GroupNorm。
+    扩散模型：ConditionalUnet1D处理时间序列动作，支持通过全局条件（观测特征）或局部条件（观测与动作拼接）注入信息。
+    条件机制：通过obs_as_global_cond控制是否将观测特征作为全局条件，影响模型输入维度。
+
+关键组件
+    调度器：DDPMScheduler管理扩散过程的时间步。
+    掩码生成器：LowdimMaskGenerator处理条件掩码，用于训练时数据修补。
+    数据增强：RotRandomizer支持旋转增强，CropRandomizer处理图像裁剪。
+
+训练流程
+    损失计算：预测噪声与真实噪声的MSE损失，通过掩码忽略条件部分。
+    归一化：LinearNormalizer统一处理观测和动作的归一化。
+
+推理流程
+    采样过程：通过conditional_sample逐步去噪生成动作序列，最终提取有效动作步。
+"""
+
+
 from typing import Dict
 import math
 import torch
@@ -35,7 +55,7 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
             num_inference_steps=None,
             obs_as_global_cond=True,
             crop_shape=(76, 76),
-            diffusion_step_embed_dim=256,
+            diffusion_step_embed_dim=256,# 设置扩散步骤的嵌入维度，并传递给模型的初始化
             down_dims=(256,512,1024),
             kernel_size=5,
             n_groups=8,
@@ -45,6 +65,22 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
             rot_aug=False,
             # parameters passed to step
             **kwargs):
+        """
+        功能：初始化 DiffusionUnetHybridImagePolicy 类，设置模型的所有超参数，加载配置，初始化各类组件。
+        参数：
+            shape_meta: 包含动作和观察数据的形状信息。
+            noise_scheduler: 用于控制扩散过程的调度器(DDPM调度器)。
+            horizon: 轨迹的长度。
+            n_action_steps: 每次动作的时间步长。
+            n_obs_steps: 观察数据的时间步长。
+            其他相关的配置参数，如 crop_shape、diffusion_step_embed_dim 等。
+        关键步骤：
+            解析形状元数据 (shape_meta)。
+            配置观察数据的类型和模态（RGB、低维、深度等)。
+            加载 Robomimic 配置，设定观察数据的随机化方式（如裁剪）。
+            初始化 obs_encoder（用于处理观察数据）和 model（扩散模型）。
+            初始化 noise_scheduler 和 mask_generator 等其他相关组件。
+        """
         super().__init__()
 
         # parse shape_meta
@@ -135,9 +171,13 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
 
         # create diffusion model
         obs_feature_dim = obs_encoder.output_shape()[0]
-        input_dim = action_dim + obs_feature_dim
+        # 代码11 - 简单的条件输入处理 输入包括动作和观察的联合特征
+        # 代码11 总是将动作和观察数据联合处理，因此输入维度为动作维度加上观察特征维度
+        input_dim = action_dim + obs_feature_dim 
         global_cond_dim = None
         if obs_as_global_cond:
+            # obs_as_global_cond如果为 True，仅使用观察数据的特征作为条件输入；
+            # obs_as_global_cond如果为 False，将观察特征和动作特征结合作为输入
             input_dim = action_dim
             global_cond_dim = obs_feature_dim * n_obs_steps
 
@@ -189,6 +229,18 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
             # keyword arguments to scheduler.step
             **kwargs
             ):
+        """
+        功能：基于给定的条件数据和条件掩码，通过扩散模型进行采样。
+        参数：
+            condition_data、condition_mask: 条件数据和掩码。
+            local_cond、global_cond: 本地条件和全局条件（根据 obs_as_global_cond 来决定）。
+            generator: 随机数生成器，用于采样。
+        关键步骤：
+            初始化扩散轨迹。
+            设置调度器的时间步。
+            在每个时间步上，应用条件数据和掩码进行采样。
+            调用扩散模型的输出，并通过调度器一步步反向扩散生成目标数据。
+        """
         model = self.model
         scheduler = self.noise_scheduler
 
@@ -226,6 +278,16 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
         """
         obs_dict: must include "obs" key
         result: must include "action" key
+        功能：根据当前观察数据预测动作。
+        参数：
+            obs_dict: 包含观察数据的字典，必须包括键 "obs"。
+        关键步骤：
+            1.对观察数据进行归一化处理。
+            2.构建输入数据（观察和动作数据）。
+            3.根据是否使用全局条件 (obs_as_global_cond)，分别处理本地条件和全局条件。
+            4.调用 conditional_sample 方法进行条件采样，生成轨迹。
+            5.生成预测的动作，并将其反归一化（恢复到原始尺度）。
+            6.返回预测的动作。
         """
         assert 'past_action' not in obs_dict # not implemented yet
         # normalize input
@@ -289,9 +351,30 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
 
     # ========= training  ============
     def set_normalizer(self, normalizer: LinearNormalizer):
+        """
+        功能：设置归一化器（LinearNormalizer）。
+        参数：
+            normalizer: 传入的归一化器。
+        关键步骤：
+            加载归一化器的状态字典。
+        """
         self.normalizer.load_state_dict(normalizer.state_dict())
 
     def compute_loss(self, batch):
+        """
+        功能：计算模型的损失函数。
+        参数：
+            batch: 输入的批次数据，包含观察数据和动作数据。
+        关键步骤：
+            1.对输入数据进行归一化处理。
+            2.根据是否使用旋转增强 (rot_aug)，对数据进行旋转增强。
+            3.处理观察数据，通过全局条件或其他方式构建条件数据。
+            4.使用 mask_generator 生成损失掩码。
+            5.计算噪声并添加到图像中，模拟扩散过程。
+            6.根据预测类型（epsilon 或 sample）计算目标（噪声或轨迹）。
+            7.使用均方误差（MSE）损失函数计算损失。
+            8.计算和返回最终的平均损失。
+        """
         # normalize input
         assert 'valid_mask' not in batch
         nobs = self.normalizer.normalize(batch['obs'])

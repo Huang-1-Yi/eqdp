@@ -140,10 +140,18 @@ class DiffusionTransformerHybridImagePolicy(BaseImagePolicy):
 
         # create diffusion model
         obs_feature_dim = obs_encoder.output_shape()[0]
-        input_dim = action_dim if obs_as_cond else (obs_feature_dim + action_dim)
+        # 代码12 - 更复杂的条件输入处理
+        # 根据 obs_as_cond 变量决定是否将观察数据作为全局条件。这使得条件输入的结构更加灵活，允许根据任务需求进行调整
+        input_dim = action_dim if obs_as_cond else (obs_feature_dim + action_dim)#  
         output_dim = input_dim
         cond_dim = obs_feature_dim if obs_as_cond else 0
 
+        
+        # TransformerForDiffusion
+        # 该模型基于 Transformer 架构，适合处理更复杂的上下文依赖，尤其是在处理时间序列或序列数据时，Transformer 能够捕获长时间步之间的关系。
+        # 它为扩散过程添加了更多的灵活性和复杂度，特别是在建模多模态条件输入时具有优势。
+        # n_layer、n_cond_layers、n_head、n_emb、p_drop_emb、p_drop_attn等参数，调整 Transformer模型的层数、头数、嵌入维度、注意力的丢弃概率等
+        # 代码1和代码2在扩散步骤嵌入维度的处理上有所不同，前者直接指定，而后者通过Transformer的嵌入维度间接控制
         model = TransformerForDiffusion(
             input_dim=input_dim,
             output_dim=output_dim,
@@ -152,13 +160,13 @@ class DiffusionTransformerHybridImagePolicy(BaseImagePolicy):
             cond_dim=cond_dim,
             n_layer=n_layer,
             n_head=n_head,
-            n_emb=n_emb,
+            n_emb=n_emb,                # 控制嵌入维度
             p_drop_emb=p_drop_emb,
             p_drop_attn=p_drop_attn,
             causal_attn=causal_attn,
-            time_as_cond=time_as_cond,
-            obs_as_cond=obs_as_cond,
-            n_cond_layers=n_cond_layers
+            time_as_cond=time_as_cond,  # 是否将时间步作为条件输入
+            obs_as_cond=obs_as_cond,    # 决定是否将观察数据作为条件输入
+            n_cond_layers=n_cond_layers 
         )
 
         self.obs_encoder = obs_encoder
@@ -178,7 +186,7 @@ class DiffusionTransformerHybridImagePolicy(BaseImagePolicy):
         self.n_action_steps = n_action_steps
         self.n_obs_steps = n_obs_steps
         self.obs_as_cond = obs_as_cond
-        self.pred_action_steps_only = pred_action_steps_only
+        self.pred_action_steps_only = pred_action_steps_only# 控制是否仅预测动作步骤
         self.kwargs = kwargs
 
         if num_inference_steps is None:
@@ -192,6 +200,15 @@ class DiffusionTransformerHybridImagePolicy(BaseImagePolicy):
             # keyword arguments to scheduler.step
             **kwargs
             ):
+        """
+        unet中的conditional_sample方法，输入包括 condition_data、condition_mask、local_cond、global_cond等。
+        在每个时间步，都会通过模型生成输出，并通过调度器计算上一时间步的状态。
+
+        tf中的conditional_sample方法，输入更简单，只包含condition_data和condition_mask，
+        并通过cond（即条件输入）来执行模型的推理。
+
+        区别：unet在推理过程中区分了局部和全局条件输入，而tf则简化了条件输入的设置，直接通过 cond 作为模型的条件输入。。
+        """
         model = self.model
         scheduler = self.noise_scheduler
 
@@ -305,6 +322,12 @@ class DiffusionTransformerHybridImagePolicy(BaseImagePolicy):
             learning_rate: float, 
             betas: Tuple[float, float]
         ) -> torch.optim.Optimizer:
+        """
+        代码1没有显示定义优化器。
+        代码2定义了get_optimizer方法，用于返回优化器，并针对不同的模型组件设置不同的权重衰减策略，允许更细粒度的优化控制。
+
+        区别：代码2提供了显式的优化器设置方法，允许对Transformer和图像编码器使用不同的权重衰减策略。
+        """
         optim_groups = self.model.get_optim_groups(
             weight_decay=transformer_weight_decay)
         optim_groups.append({
@@ -316,7 +339,16 @@ class DiffusionTransformerHybridImagePolicy(BaseImagePolicy):
         )
         return optimizer
 
+
     def compute_loss(self, batch):
+        """
+        代码1的compute_loss方法，使用了噪声残差（epsilon）作为目标，并计算预测与目标之间的均方误差（MSE）。
+
+        代码2的compute_loss方法，处理过程基本相同，区别在于：
+            pred_action_steps_only：控制是否只计算预测的动作步骤。
+            在训练过程中，trajectory的构建与噪声的加入操作与代码1类似，但使用了更多的条件控制，例如pred_action_steps_only，来针对特定训练目标进行优化。
+        区别：代码2提供了更多的训练灵活性，尤其是在处理动作预测步数时的控制。
+        """
         # normalize input
         assert 'valid_mask' not in batch
         nobs = self.normalizer.normalize(batch['obs'])

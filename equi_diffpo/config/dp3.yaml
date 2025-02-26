@@ -81,7 +81,7 @@ ema:
 
 dataloader:
   batch_size: 128
-  num_workers: 8
+  num_workers: 4
   shuffle: True
   pin_memory: True
   persistent_workers: True
@@ -101,7 +101,7 @@ optimizer:
   weight_decay: 1.0e-6
 
 training:
-  device: "cuda:0"
+  device: "cuda:1"
   seed: 42
   debug: False
   resume: True
@@ -129,7 +129,8 @@ logging:
 
 
 checkpoint:
-  save_ckpt: False # if True, save checkpoint every checkpoint_every
+  # save_ckpt: False # if True, save checkpoint every checkpoint_every
+  save_ckpt: True # if True, save checkpoint every checkpoint_every
   topk:
     monitor_key: test_mean_score
     mode: max

@@ -1,3 +1,11 @@
+"""
+obs_dict:
+    从数据集（BaseImageDataset）加载训练数据。
+    通过 DataLoader 按批次获取数据。
+    数据（如相机图像、点云等）被包装到 batch['obs'] 字典中。
+    obs_dict 在训练过程中会经过归一化和预处理，变成一个可以直接传递给模型的格式。
+"""
+
 if __name__ == "__main__":
     import sys
     import os
@@ -54,6 +62,8 @@ class TrainDP3Workspace:
 
         self.ema_model: DP3 = None
         if cfg.training.use_ema:
+            # 使用了 try-except 块来处理 minkowski engine 等不可复制的模型
+            # 如果模型无法复制，则通过 hydra.utils.instantiate(cfg.policy) 重新实例化EMA模型
             try:
                 self.ema_model = copy.deepcopy(self.model)
             except: # minkowski engine could not be copied. recreate it
@@ -70,7 +80,8 @@ class TrainDP3Workspace:
 
     def run(self):
         cfg = copy.deepcopy(self.cfg)
-        
+        # 代码3中的 debug 配置更多用于快速调试，减少训练时间和验证步骤。
+        # 这种配置在调试模式下非常有用，但在正常训练中会被禁用
         if cfg.training.debug:
             cfg.training.num_epochs = 100
             cfg.training.max_train_steps = 10
@@ -96,12 +107,21 @@ class TrainDP3Workspace:
                 print(f"Resuming from checkpoint {lastest_ckpt_path}")
                 self.load_checkpoint(path=lastest_ckpt_path)
 
-        # configure dataset
+        # configure dataset 实例化数据集，包括图像、点云和其他环境信息
         dataset: BaseImageDataset
         dataset = hydra.utils.instantiate(cfg.task.dataset)
-
+        # 按批次加载数据
         assert isinstance(dataset, BaseImageDataset), print(f"dataset must be BaseDataset, got {type(dataset)}")
         train_dataloader = DataLoader(dataset, **cfg.dataloader)
+        """
+        每个批次的数据会包含一个字典（batch），其中包含多种数据项，如观察数据、动作标签等。通常情况下，batch 结构如下：
+        {
+            'obs': {'camera': image_data, 'point_cloud': point_cloud_data, ...},
+            'action': action_data,
+            ...
+        }
+        """
+        # 归一化观察数据，包含了标准化后的图像、点云等,包含了将要传递给模型的所有观察数据
         normalizer = dataset.get_normalizer()
 
         # configure validation dataset
@@ -141,6 +161,7 @@ class TrainDP3Workspace:
         if env_runner is not None:
             assert isinstance(env_runner, BaseImageRunner)
         
+        # 引入了 termcolor 库来在控制台中输出带颜色的日志信息，使得日志更加易于阅读
         cfg.logging.name = str(cfg.logging.name)
         cprint("-----------------------------", "yellow")
         cprint(f"[WandB] group: {cfg.logging.group}", "yellow")
@@ -285,9 +306,11 @@ class TrainDP3Workspace:
                 with torch.no_grad():
                     # sample trajectory from training set, and evaluate difference
                     batch = dict_apply(train_sampling_batch, lambda x: x.to(device, non_blocking=True))
-                    obs_dict = batch['obs']
+                    # 被用作输入传递给模型进行动作预测
+                    obs_dict = batch['obs']    
                     gt_action = batch['action']
                     
+                    # 被predict_action进一步处理，归一化并转换为合适的条件输入，用来生成预测的动作
                     result = policy.predict_action(obs_dict)
                     pred_action = result['action_pred']
                     mse = torch.nn.functional.mse_loss(pred_action, gt_action)
@@ -305,6 +328,7 @@ class TrainDP3Workspace:
             # checkpoint
             if (self.epoch % cfg.training.checkpoint_every) == 0 and cfg.checkpoint.save_ckpt:
                 # checkpointing
+                # 除了常见的检查点保存方法，代码3提供了一个 save_snapshot 方法，用于保存工作空间的完整状态（包括配置、模型状态、优化器状态等）
                 if cfg.checkpoint.save_last_ckpt:
                     self.save_checkpoint()
                 if cfg.checkpoint.save_last_snapshot:
@@ -375,6 +399,10 @@ class TrainDP3Workspace:
             exclude_keys=None,
             include_keys=None,
             use_thread=False):
+        """
+        使用了 dill 来进行模型的序列化操作，提供了更多的灵活性和支持，尤其是在处理复杂对象时
+        代码3引入了多线程保存检查点，这有助于减少保存过程对训练的阻塞，提高训练效率
+        """
         if path is None:
             path = pathlib.Path(self.output_dir).joinpath('checkpoints', f'{tag}.ckpt')
         else:
@@ -489,7 +517,12 @@ class TrainDP3Workspace:
         return str(path.absolute())
     
     @classmethod
+
     def create_from_snapshot(cls, path):
+        """
+        napshot_path 是保存快照文件的路径，通常是 .pkl 文件。例如，路径可能是 ./snapshots/latest.pkl。
+        create_from_snapshot 会加载快照中的配置和状态，然后恢复模型、优化器等所有相关部分
+        """
         return torch.load(open(path, 'rb'), pickle_module=dill)
     
 
@@ -501,6 +534,11 @@ class TrainDP3Workspace:
 def main(cfg):
     workspace = TrainDP3Workspace(cfg)
     workspace.run()
+
+# # 恢复训练
+# def main(cfg):
+#     workspace = TrainDP3Workspace.create_from_snapshot(snapshot_path)
+#     workspace.run()
 
 if __name__ == "__main__":
     main()

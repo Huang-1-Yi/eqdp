@@ -1,3 +1,27 @@
+"""
+代码对比分析
+1. 类名和模型结构
+    代码1定义了 DiffusionEquiUNetCNNEncPolicy 类,主要使用 EquivariantObsEnc 进行观察编码,并通过 EquiDiffusionUNet 执行扩散过程。
+    代码2定义了 DiffusionUnetHybridImagePolicy 类,模型部分使用 ConditionalUnet1D 进行扩散过程,同时在图像编码部分使用了来自 robomimic 的模块,特别是 PolicyAlgo 和 obs_encoder。
+2. 扩散模型
+    代码1使用了 EquiDiffusionUNet,这是一个处理具有等变性的扩散模型,适用于复杂的视觉任务,重点是通过全局和局部条件进行生成。
+    代码2使用了 ConditionalUnet1D,它与 EquiDiffusionUNet 类似,但也专注于通过全局和局部条件进行生成,但在实现上有所不同,尤其是与 obs_encoder 结合的部分。
+3. 观察数据处理
+    代码1通过 EquivariantObsEnc 处理输入的图像数据,并结合 LowdimMaskGenerator 为扩散过程生成掩码。
+    代码2通过 obs_encoder(一个基于 robomimic 的编码器)处理图像数据,且在其中添加了对旋转增强(RotRandomizer)和裁剪随机化(CropRandomizer)的支持。对于 obs_encoder,还支持通过 GroupNorm 替换 BatchNorm。
+4. 动作预测
+    代码1的 predict_action 方法先通过 normalizer 对观测数据进行标准化,然后使用 conditional_sample 生成动作预测,最终根据 n_action_steps 获取最终的动作。
+    代码2的 predict_action 方法的流程与代码1类似,也是通过标准化的输入生成条件采样,并对预测的动作进行去标准化。但它在处理全局和局部条件时有所不同,尤其是在如何使用 obs_as_global_cond 进行条件控制。
+5. 损失计算
+    代码1在 compute_loss 方法中,使用 MSE损失来计算噪声预测与目标的差异,并使用 LowdimMaskGenerator 来生成损失掩码。
+    代码2在 compute_loss 方法中,基本逻辑与代码1相同,但它多了 dict_apply 和条件控制的细节,确保在不同的条件下合理传递观测数据。
+6. 超参数和配置
+    代码1和代码2都通过初始化时的超参数(如 horizon,n_action_steps,n_obs_steps 等)控制模型的行为,但代码2涉及到更多的外部配置,尤其是 robomimic 中的 config,并且支持动态调整图像裁剪大小等设置。
+总结
+    相似性:两个代码都基于扩散模型进行图像生成,并且通过条件采样进行动作预测。它们都处理了观察数据的标准化、生成的掩码以及损失函数计算。
+    差异性:代码1使用了一个专门设计的 EquivariantObsEnc 和 EquiDiffusionUNet 进行处理,而代码2则集成了 robomimic 框架,使用了更为复杂的图像处理模块(如旋转增强、裁剪随机化等),并且在配置和模型细节上有更多的灵活性。
+"""
+
 from typing import Dict, Tuple
 import torch
 import torch.nn.functional as F
@@ -40,6 +64,9 @@ class DiffusionEquiUNetCNNEncPolicy(BaseImagePolicy):
             rot_aug=False,
             # parameters passed to step
             **kwargs):
+        """
+        
+        """
         super().__init__()
 
         # parse shape_meta
@@ -207,6 +234,10 @@ class DiffusionEquiUNetCNNEncPolicy(BaseImagePolicy):
         self.normalizer.load_state_dict(normalizer.state_dict())
 
     def compute_loss(self, batch):
+        """
+        观察数据（nobs）被直接通过一个编码器（self.enc）进行特征提取，然后将结果用于生成global_cond，即全局条件。这里假设观察数据只是提供全局条件，用于影响预测过程中的全局信息。
+        特征提取后的global_cond是一个批次大小的二维张量，即(batch_size, -1)，用作预测时的全局条件。
+        """
         # normalize input
         assert 'valid_mask' not in batch
         nobs = self.normalizer.normalize(batch['obs'])
@@ -214,11 +245,15 @@ class DiffusionEquiUNetCNNEncPolicy(BaseImagePolicy):
         if self.rot_aug:
             nobs, nactions = self.rot_randomizer(nobs, nactions)
         batch_size = nactions.shape[0]
+
+
         trajectory = nactions
         cond_data = trajectory
         nobs_features = self.enc(nobs)
         # reshape back to B, Do
         global_cond = nobs_features.reshape(batch_size, -1)
+
+
 
         # generate impainting mask
         condition_mask = self.mask_generator(trajectory.shape)
@@ -259,3 +294,4 @@ class DiffusionEquiUNetCNNEncPolicy(BaseImagePolicy):
         loss = reduce(loss, 'b ... -> b (...)', 'mean')
         loss = loss.mean()
         return loss
+    

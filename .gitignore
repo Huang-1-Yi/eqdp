@@ -12,7 +12,7 @@ _wandb
 fuse.cfg
 
 *.ai
-
+*.hdf5
 # Generation results
 results/
 
@@ -154,3 +154,18 @@ metric1.py
 grouped_xyz.png
 all_xyz.png
 1.png
+equidiff_0223.zip
+latest_dp.ckpt
+latest_eqdp.ckpt
+robosuite-b9d8d3de5e3dfd1724f4a0e6555246c460407daa.tar.gz
+robosuite-task-zoo-0f8a7b2fa5d192e4e8800bebfe8090b28926f3ed.tar.gz
+test/test_output/point_cloud_0.npy
+test/test_output/point_cloud_1.npy
+test/test_output/point_cloud_2.npy
+test/test_output/point_cloud_3.npy
+test/test_output/point_cloud_4.npy
+test/test_output/agentview_image_0.png
+test/test_output/agentview_image_1.png
+test/test_output/agentview_image_2.png
+test/test_output/agentview_image_3.png
+test/test_output/agentview_image_4.png

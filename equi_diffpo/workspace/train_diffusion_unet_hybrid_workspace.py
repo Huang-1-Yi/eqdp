@@ -51,8 +51,22 @@ class TrainDiffusionUnetHybridWorkspace(BaseWorkspace):
             self.ema_model = copy.deepcopy(self.model)
 
         # configure training state
+        # 在transformer中，优化器的配置是由 get_optimizer 方法提供的
+        # 而在unet中，优化器通过 hydra.utils.instantiate 来直接根据配置文件进行初始化，
+        # 并显式传递了 params=self.model.parameters()。
         self.optimizer = hydra.utils.instantiate(
             cfg.optimizer, params=self.model.parameters())
+        """
+        *****适合适合需要灵活配置和替换优化器的场景，尤其是在实验中需要不断调整优化器超参数时
+        将优化器的创建过程外部化，由外部的配置文件来处理优化器的配置，而模型本身仅提供参数。优化器实例化时需要显式传入模型参数。优势和劣势如下：
+        优势：
+            更高的灵活性：优化器的配置独立于模型，可以根据需要更改优化器，而无需修改模型代码。这对实验和调试时非常有用。
+            配置文件中对优化器有清晰的控制，可以使用 hydra 等工具灵活地调整优化器的超参数。
+            更便于调试和复用，因为优化器的配置完全在外部，不受模型内部的限制。
+        劣势：
+            需要明确传递参数：优化器实例化时必须显式传入模型的参数，这意味着需要在多个地方维护对模型参数的访问权。
+            优化器的配置不在模型内部，可能导致在一些特殊情况下配置不一致或难以管理
+        """
 
         # configure training state
         self.global_step = 0

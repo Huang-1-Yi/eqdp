@@ -1,0 +1,581 @@
+conda activate equidiff
+python eval.py --checkpoint latest.ckpt --output_dir data/square_eval_output --device cuda:1
+
+python train.py --config-name=dp3 task_name=test
+python train.py --config-name=train_diffusion_unet task_name=test
+测试代码
+pip install plyfile
+python test/robomimic_replay_point_cloud_dataset.py --config-path=test/ --config-name=dp3 task_name=test
+
+/home/hy/equidiff/test/equi_diffpo/config
+
+
+
+conda env update --name equidiff --file conda_environment.yaml
+或者逐一安装
+pip install https://github.com/pointW/escnn/archive/fc4714cb6dc0d2a32f9fcea35771968b89911109.tar.gz
+ 1021  pip install --upgrade huggingface_hub
+ 
+ 1029  pip install --upgrade huggingface_hub diffusers
+ 1031  python train.py --config-name=train_equi_diffusion_unet_voxel_abs task_name=test
+ 1032  code .
+ 1033  python eval.py --checkpoint data/outputs/2025.02.07/22.47.11_equi_diff_voxel_test/checkpoints/latest.ckpt --output_dir data/square_eval_output --device cuda:0
+
+
+# Download all datasets
+python equi_diffpo/scripts/download_datasets.py --tasks stack_d1 stack_three_d1 square_d2 threading_d2 coffee_d2 three_piece_assembly_d2 hammer_cleanup_d1 mug_cleanup_d1 kitchen_d1 nut_assembly_d0 pick_place_d0 coffee_preparation_d1
+# Alternatively, download one (or several) datasets of interest, e.g.,
+python equi_diffpo/scripts/download_datasets.py --tasks stack_d1
+
+
+# Template
+python equi_diffpo/scripts/dataset_states_to_obs.py --input data/robomimic/datasets/[dataset]/[dataset].hdf5 --output data/robomimic/datasets/[dataset]/[dataset]_voxel.hdf5 --num_workers=[n_worker]
+# Replace [dataset] and [n_worker] with your choices.
+# E.g., use 24 workers to generate point cloud and voxel observation for stack_d1
+python equi_diffpo/scripts/dataset_states_to_obs.py --input data/robomimic/datasets/stack_d1/stack_d1.hdf5 --output data/robomimic/datasets/stack_d1/stack_d1_voxel.hdf5 --num_workers=24
+
+
+
+# Template
+python equi_diffpo/scripts/robomimic_dataset_conversion.py -i data/robomimic/datasets/[dataset]/[dataset].hdf5 -o data/robomimic/datasets/[dataset]/[dataset]_abs.hdf5 -n [n_worker]
+# Replace [dataset] and [n_worker] with your choices.
+# E.g., convert stack_d1 (non-voxel) with 12 workers
+python equi_diffpo/scripts/robomimic_dataset_conversion.py -i data/robomimic/datasets/stack_d1/stack_d1_voxel.hdf5 -o data/robomimic/datasets/stack_d1/stack_d1_abs.hdf5 -n 12
+# E.g., convert stack_d1_voxel (voxel) with 12 workers
+python equi_diffpo/scripts/robomimic_dataset_conversion.py -i data/robomimic/datasets/stack_d1/stack_d1_voxel.hdf5 -o data/robomimic/datasets/stack_d1/stack_d1_voxel_abs.hdf5 -n 12
+
+
+
+python equi_diffpo/scripts/dataset_states_to_obs.py --input data/robomimic/datasets/square/ph/low_dim_v141.hdf5 --output data/robomimic/datasets/square/ph/low_dim_v141_voxel.hdf5 --num_workers=12
+
+# Template
+python equi_diffpo/scripts/robomimic_dataset_conversion.py -i data/robomimic/datasets/[dataset]/[dataset].hdf5 -o data/robomimic/datasets/[dataset]/[dataset]_abs.hdf5 -n [n_worker]
+# Replace [dataset] and [n_worker] with your choices.
+# E.g., convert stack_d1 (non-voxel) with 12 workers
+python equi_diffpo/scripts/robomimic_dataset_conversion.py -i data/robomimic/datasets/square/ph/low_dim_v141_voxel.hdf5 -o data/robomimic/datasets/square/ph/low_dim_v141_abs.hdf5 -n 12
+# E.g., convert stack_d1_voxel (voxel) with 12 workers
+python equi_diffpo/scripts/robomimic_dataset_conversion.py -i data/robomimic/datasets/square/ph/low_dim_v141_voxel.hdf5 -o data/robomimic/datasets/square/ph/low_dim_v141_voxel_abs.hdf5 -n 12
+
+通过图像观察进行训练
+要在 Stack D1 任务中训练等变扩散策略（具有绝对姿态控制）：
+python train.py --config-name=train_equi_diffusion_unet_abs task_name=low_dim_v141_voxel n_demo=100
+
+要改用相对姿势控制进行训练：
+python train.py --config-name=train_equi_diffusion_unet_rel task_name=low_dim_v141_voxel n_demo=100
+
+python robomimic/scripts/download_datasets.py --tasks square --dataset_types ph --hdf5_types low_dim image
+
+
+
+
+
+
+
+真机实验需求
+# conda install pyrealsense2
+pip install pyrealsense2
+
+conda install spnav
+pip install spnav
+sudo apt install libspnav-dev spacenavd
+pip install git+https://github.com/cheng-chi/spnav.git@c1c938ebe3cc542db4685e0d13850ff1abfdb943
+
+
+
+pip install open3d
+
+
+
+
+
+enable_depth=True,
+
+
+scp equidiff_0223.zip 46462@10.242.110.8:/c:/Users/46462/Downloads/0223
+
+
+对于obs = env.get_obs() 得到的数据，包括
+obs_data = dict(camera_obs)
+obs_data.update(robot_obs)
+obs_data['timestamp'] = obs_align_timestamps
+其中：
+camera_obs[f'camera_{camera_idx}'] = value['color'][this_idxs] 
+camera_obs[f'camera_{camera_idx}'] = value['depth'][this_idxs] 
+
+vis_img = obs[f'camera_{vis_camera_idx}'][-1,:,:,::-1].copy() 
+
+cv2.imshow('default', vis_img)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(equidiff) hy@a:~/equidiff$ python test/robomimic_replay_point_cloud_dataset.py --config-name=dp3 task_name=test
+Working directory: /home/hy/equidiff
+Loaded config: name: train_dp3
+_target_: equi_diffpo.workspace.train_dp3_workspace.TrainDP3Workspace
+shape_meta: ${task.shape_meta}
+exp_name: debug
+task_name: test
+n_demo: 200
+horizon: 16
+n_obs_steps: 2
+n_action_steps: 8
+n_latency_steps: 0
+dataset_obs_steps: ${n_obs_steps}
+keypoint_visible_rate: 1.0
+obs_as_global_cond: true
+dataset_target: equi_diffpo.dataset.robomimic_replay_point_cloud_dataset.RobomimicReplayPointCloudDataset
+dataset_path: data/robomimic/datasets/${task_name}/${task_name}_voxel_abs.hdf5
+policy:
+  _target_: equi_diffpo.policy.dp3.DP3
+  use_point_crop: true
+  condition_type: film
+  use_down_condition: true
+  use_mid_condition: true
+  use_up_condition: true
+  diffusion_step_embed_dim: 128
+  down_dims:
+  - 512
+  - 1024
+  - 2048
+  crop_shape:
+  - 80
+  - 80
+  encoder_output_dim: 64
+  horizon: ${horizon}
+  kernel_size: 5
+  n_action_steps: ${n_action_steps}
+  n_groups: 8
+  n_obs_steps: ${n_obs_steps}
+  noise_scheduler:
+    _target_: diffusers.schedulers.scheduling_ddim.DDIMScheduler
+    num_train_timesteps: 100
+    beta_start: 0.0001
+    beta_end: 0.02
+    beta_schedule: squaredcos_cap_v2
+    clip_sample: true
+    set_alpha_to_one: true
+    steps_offset: 0
+    prediction_type: sample
+  num_inference_steps: 10
+  obs_as_global_cond: true
+  shape_meta: ${shape_meta}
+  use_pc_color: true
+  pointnet_type: pointnet
+  pointcloud_encoder_cfg:
+    in_channels: 3
+    out_channels: ${policy.encoder_output_dim}
+    use_layernorm: true
+    final_norm: layernorm
+    normal_channel: false
+ema:
+  _target_: equi_diffpo.model.diffusion.ema_model.EMAModel
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999
+dataloader:
+  batch_size: 128
+  num_workers: 8
+  shuffle: true
+  pin_memory: true
+  persistent_workers: true
+val_dataloader:
+  batch_size: 128
+  num_workers: 8
+  shuffle: false
+  pin_memory: true
+  persistent_workers: true
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 0.0001
+  betas:
+  - 0.95
+  - 0.999
+  eps: 1.0e-08
+  weight_decay: 1.0e-06
+training:
+  device: cuda:1
+  seed: 42
+  debug: false
+  resume: true
+  lr_scheduler: cosine
+  lr_warmup_steps: 500
+  num_epochs: ${eval:'50000 / ${n_demo}'}
+  gradient_accumulate_every: 1
+  use_ema: true
+  rollout_every: ${eval:'1000 / ${n_demo}'}
+  checkpoint_every: ${eval:'1000 / ${n_demo}'}
+  val_every: 1
+  sample_every: 5
+  max_train_steps: null
+  max_val_steps: null
+  tqdm_interval_sec: 1.0
+logging:
+  project: dp3_${task_name}
+  resume: true
+  mode: online
+  name: dp3_${n_demo}
+  tags:
+  - ${name}
+  - ${task_name}
+  - ${exp_name}
+  id: null
+  group: null
+checkpoint:
+  save_ckpt: true
+  topk:
+    monitor_key: test_mean_score
+    mode: max
+    k: 1
+    format_str: epoch={epoch:04d}-test_mean_score={test_mean_score:.3f}.ckpt
+  save_last_ckpt: true
+  save_last_snapshot: false
+multi_run:
+  run_dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+  wandb_name_base: ${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name}
+task:
+  name: mimicgen_pc_abs
+  shape_meta:
+    obs:
+      robot0_eye_in_hand_image:
+        shape:
+        - 3
+        - 84
+        - 84
+        type: rgb
+      point_cloud:
+        shape:
+        - 1024
+        - 6
+        type: point_cloud
+      robot0_eef_pos:
+        shape:
+        - 3
+      robot0_eef_quat:
+        shape:
+        - 4
+      robot0_gripper_qpos:
+        shape:
+        - 2
+    action:
+      shape:
+      - 10
+  env_runner_shape_meta:
+    obs:
+      robot0_eye_in_hand_image:
+        shape:
+        - 3
+        - 84
+        - 84
+        type: rgb
+      agentview_image:
+        shape:
+        - 3
+        - 84
+        - 84
+        type: rgb
+      point_cloud:
+        shape:
+        - 1024
+        - 6
+        type: point_cloud
+      robot0_eef_pos:
+        shape:
+        - 3
+      robot0_eef_quat:
+        shape:
+        - 4
+      robot0_gripper_qpos:
+        shape:
+        - 2
+    action:
+      shape:
+      - 10
+  abs_action: true
+  env_runner:
+    _target_: equi_diffpo.env_runner.robomimic_image_runner.RobomimicImageRunner
+    dataset_path: ${dataset_path}
+    shape_meta:
+      obs:
+        robot0_eye_in_hand_image:
+          shape:
+          - 3
+          - 84
+          - 84
+          type: rgb
+        agentview_image:
+          shape:
+          - 3
+          - 84
+          - 84
+          type: rgb
+        point_cloud:
+          shape:
+          - 1024
+          - 6
+          type: point_cloud
+        robot0_eef_pos:
+          shape:
+          - 3
+        robot0_eef_quat:
+          shape:
+          - 4
+        robot0_gripper_qpos:
+          shape:
+          - 2
+      action:
+        shape:
+        - 10
+    n_train: 6
+    n_train_vis: 2
+    train_start_idx: 0
+    n_test: 50
+    n_test_vis: 4
+    test_start_seed: 100000
+    max_steps: ${get_max_steps:${task_name}}
+    n_obs_steps: ${n_obs_steps}
+    n_action_steps: ${n_action_steps}
+    render_obs_key: agentview_image
+    fps: 10
+    crf: 22
+    past_action: false
+    abs_action: true
+    tqdm_interval_sec: 1.0
+    n_envs: 28
+  dataset:
+    _target_: ${dataset_target}
+    n_demo: ${n_demo}
+    shape_meta:
+      obs:
+        robot0_eye_in_hand_image:
+          shape:
+          - 3
+          - 84
+          - 84
+          type: rgb
+        point_cloud:
+          shape:
+          - 1024
+          - 6
+          type: point_cloud
+        robot0_eef_pos:
+          shape:
+          - 3
+        robot0_eef_quat:
+          shape:
+          - 4
+        robot0_gripper_qpos:
+          shape:
+          - 2
+      action:
+        shape:
+        - 10
+    dataset_path: ${dataset_path}
+    horizon: ${horizon}
+    pad_before: ${eval:'${n_obs_steps}-1+${n_latency_steps}'}
+    pad_after: ${eval:'${n_action_steps}-1'}
+    n_obs_steps: ${dataset_obs_steps}
+    abs_action: true
+    rotation_rep: rotation_6d
+    use_legacy_normalizer: false
+    use_cache: false
+    seed: 42
+    val_ratio: 0.02
+
+shape_meta['action']['shape']: [10]
+Loading lowdim data:  75%|██████████████████      | 3/4 [00:00<00:00, 20.74it/s]this_data.shape: (30154, 7)
+Expected shape: (30154,) + (10,)
+Loading lowdim data:  75%|██████████████████      | 3/4 [00:00<00:00, 16.81it/s]
+Error executing job with overrides: ['task_name=test']
+Traceback (most recent call last):
+  File "/home/hy/equidiff/test/robomimic_replay_point_cloud_dataset.py", line 79, in test
+    dataset = RobomimicReplayPointCloudDataset(
+  File "/home/hy/equidiff/equi_diffpo/dataset/robomimic_replay_point_cloud_dataset.py", line 112, in __init__
+    replay_buffer = _convert_point_cloud_to_replay(
+  File "/home/hy/equidiff/equi_diffpo/dataset/robomimic_replay_point_cloud_dataset.py", line 342, in _convert_point_cloud_to_replay
+    assert this_data.shape == (n_steps,) + tuple(shape_meta['action']['shape'])
+AssertionError
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+wandb: Currently logged in as: 464623053 to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+wandb: Tracking run with wandb version 0.19.6
+wandb: Run data is saved locally in /home/hy/equidiff/data/outputs/2025.02.20/23.59.12_train_dp3_test/wandb/run-20250221_000211-n8do3ncf
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run dp3_200
+wandb: ⭐️ View project at https://wandb.ai/464623053/dp3_test
+wandb: 🚀 View run at https://wandb.ai/464623053/dp3_test/runs/n8do3ncf
+Error executing job with overrides: ['task_name=test']                                                                                 
+Traceback (most recent call last):
+  File "/home/hy/equidiff/train.py", line 65, in main
+    workspace.run()
+  File "/home/hy/equidiff/equi_diffpo/workspace/train_dp3_workspace.py", line 207, in run
+    for batch_idx, batch in enumerate(tepoch):
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/tqdm/std.py", line 1195, in __iter__
+    for obj in iterable:
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 630, in __next__
+    data = self._next_data()
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1345, in _next_data
+    return self._process_data(data)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1371, in _process_data
+    data.reraise()
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/_utils.py", line 694, in reraise
+    raise exception
+ValueError: Caught ValueError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/worker.py", line 308, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 51, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 51, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/hy/equidiff/equi_diffpo/dataset/robomimic_replay_point_cloud_dataset.py", line 249, in __getitem__
+    plt.imsave(image_path, obs_dict[key][0])  # Save only the first frame of the image (T=0)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/matplotlib/pyplot.py", line 2118, in imsave
+    return matplotlib.image.imsave(fname, arr, **kwargs)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/matplotlib/image.py", line 1622, in imsave
+    rgba = sm.to_rgba(arr, bytes=True)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/matplotlib/cm.py", line 490, in to_rgba
+    raise ValueError("Third dimension must be 3 or 4")
+ValueError: Third dimension must be 3 or 4
+
+
+
+
+
+
+Error executing job with overrides: ['task_name=test']                                                                                 
+Traceback (most recent call last):
+  File "/home/hy/equidiff/train.py", line 65, in main
+    workspace.run()
+  File "/home/hy/equidiff/equi_diffpo/workspace/train_dp3_workspace.py", line 207, in run
+    for batch_idx, batch in enumerate(tepoch):
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/tqdm/std.py", line 1195, in __iter__
+    for obj in iterable:
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 630, in __next__
+    data = self._next_data()
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1345, in _next_data
+    return self._process_data(data)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1371, in _process_data
+    data.reraise()
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/_utils.py", line 694, in reraise
+    raise exception
+ValueError: Caught ValueError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/worker.py", line 308, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 51, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 51, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/hy/equidiff/equi_diffpo/dataset/robomimic_replay_point_cloud_dataset.py", line 254, in __getitem__
+    raise ValueError(f"Unexpected image shape: {obs_dict[key].shape}")
+ValueError: Unexpected image shape: (2, 3, 84, 84)
+
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+
+
+
+
+Training epoch 0:   0%|                                                                                        | 0/220 [00:00<?, ?it/s]Saved image 0 for index 162 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_162_0.png
+Saved image 0 for index 26251 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_26251_0.png
+Saved image 0 for index 6015 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_6015_0.png
+Saved image 1 for index 162 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_162_1.png
+Saved image 0 for index 15004 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_15004_0.png
+Saved image 0 for index 27920 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_27920_0.png
+Saved image 0 for index 21609 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_21609_0.png
+Saved image 0 for index 22905 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_22905_0.png
+Saved image 1 for index 26251 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_26251_1.png
+Saved image 1 for index 6015 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_6015_1.png
+Saved image 1 for index 21609 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_21609_1.png
+Saved image 1 for index 22905 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_22905_1.png
+Saved image 0 for index 6859 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_6859_0.png
+Saved image 1 for index 15004 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_15004_1.png
+Saved image 1 for index 27920 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_27920_1.png
+Saved image 1 for index 6859 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_6859_1.png                           
+Error executing job with overrides: ['task_name=test']
+Saved image 0 for index 9244 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_9244_0.png
+Saved image 0 for index 3734 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_3734_0.png
+Saved image 0 for index 24495 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_24495_0.png
+Saved image 0 for index 10707 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_10707_0.png
+Traceback (most recent call last):
+  File "/home/hy/equidiff/train.py", line 65, in main
+    workspace.run()
+Saved image 1 for index 3734 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_3734_1.png
+  File "/home/hy/equidiff/equi_diffpo/workspace/train_dp3_workspace.py", line 207, in run
+    for batch_idx, batch in enumerate(tepoch):
+Saved image 0 for index 8057 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_8057_0.png
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/tqdm/std.py", line 1195, in __iter__
+    for obj in iterable:
+Saved image 0 for index 22842 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_22842_0.png
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 630, in __next__
+    data = self._next_data()
+Saved image 1 for index 24495 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_24495_1.png
+Saved image 1 for index 9244 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_9244_1.png
+Saved image 1 for index 10707 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_10707_1.png
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1345, in _next_data
+    return self._process_data(data)
+Saved image 0 for index 582 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_582_0.png
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1371, in _process_data
+    data.reraise()
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/_utils.py", line 694, in reraise
+    raise exception
+KeyError: Caught KeyError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/worker.py", line 308, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 51, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/opt/miniconda3/envs/equidiff/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 51, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/hy/equidiff/equi_diffpo/dataset/robomimic_replay_point_cloud_dataset.py", line 282, in __getitem__
+    del data[key]
+KeyError: 'robot0_eye_in_hand_image'
+
+Saved image 0 for index 17905 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_17905_0.png
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+Saved image 1 for index 22842 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_22842_1.png
+Saved image 1 for index 8057 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_8057_1.png
+Saved image 1 for index 17905 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_17905_1.png
+Saved image 1 for index 582 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_582_1.png
+Saved image 0 for index 11562 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_11562_0.png
+Saved image 1 for index 11562 to /home/hy/equidiff/test/test_output/robot0_eye_in_hand_image_image_11562_1.png
+wandb: 
+wandb: 🚀 View run dp3_200 at: https://wandb.ai/464623053/dp3_test/runs/2hfgs10r
+wandb: Find logs at: data/outputs/2025.02.21/00.17.00_train_dp3_test/wandb/run-20250221_002001-2hfgs10r/logs
+/opt/miniconda3/envs/equidiff/lib/python3.9/multiprocessing/resource_tracker.py:216: UserWarning: resource_tracker: There appear to be 36 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+
+
+agentview_image

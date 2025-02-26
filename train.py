@@ -31,6 +31,7 @@ max_steps = {
     'can': 400,
     'lift': 400,
     'square': 400,
+    'test': 400,
 }
 
 def get_ws_x_center(task_name):

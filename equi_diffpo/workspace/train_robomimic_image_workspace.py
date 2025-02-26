@@ -1,3 +1,9 @@
+"""
+代码5 中，train_on_batch 返回的 info 字典包含了一个嵌套的 losses 字典，其中包括具体的损失项（例如 action_loss）。这是一个较为详细的日志记录方式，可以追踪多个损失项。
+代码3 中，日志记录较为简单，只有全局损失值被记录和输出
+"""
+
+
 if __name__ == "__main__":
     import sys
     import os
@@ -130,10 +136,13 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                         if train_sampling_batch is None:
                             train_sampling_batch = batch
 
+                        # 使用了 train_on_batch 方法进行训练，在每个批次上计算损失并执行优化
+                        # 而不是模型的标准 compute_loss 方法计算损失
                         info = self.model.train_on_batch(batch, epoch=self.epoch)
-
                         # logging 
                         loss_cpu = info['losses']['action_loss'].item()
+                        
+                        
                         tepoch.set_postfix(loss=loss_cpu, refresh=False)
                         train_losses.append(loss_cpu)
                         step_log = {
@@ -186,6 +195,7 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                             # log epoch average validation loss
                             step_log['val_loss'] = val_loss
 
+                # 在训练过程中，会对一个训练批次进行“扩散采样”，并计算预测动作的均方误差（MSE）
                 # run diffusion sampling on a training batch
                 if (self.epoch % cfg.training.sample_every) == 0:
                     with torch.no_grad():
@@ -193,8 +203,12 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                         batch = dict_apply(train_sampling_batch, lambda x: x.to(device, non_blocking=True))
                         obs_dict = batch['obs']
                         gt_action = batch['action']
-                        T = gt_action.shape[1]
 
+                        # robomimic的采样方法考虑了多步预测（基于时间步 T），并且重置了模型状态。
+                        # dp3的采样方法相对简洁，直接计算单步预测的误差
+                        
+                        # 实现1：robomimic这段代码显式地重置模型状态，并根据观察数据进行多步动作预测
+                        T = gt_action.shape[1]
                         pred_actions = list()
                         self.model.reset()
                         for i in range(T):
@@ -202,6 +216,11 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                                 dict_apply(obs_dict, lambda x: x[:,[i]])
                             )
                             pred_actions.append(result['action'])
+                        
+                        # 实现2： dp3在训练过程中也有采样步骤，但与代码5中的具体实现有所不同，且代码3中的采样方法更为简洁，直接从训练数据批次中获取预测结果并计算MSE。
+                        # result = policy.predict_action(obs_dict)
+                        # pred_actions = result['action_pred']
+
                         pred_actions = torch.cat(pred_actions, dim=1)
                         mse = torch.nn.functional.mse_loss(pred_actions, gt_action)
                         step_log['train_action_mse_error'] = mse.item()
@@ -209,8 +228,13 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                         del obs_dict
                         del gt_action
                         del result
-                        del pred_actions
+                        del pred_action
                         del mse
+
+
+
+
+
 
                 # checkpoint
                 if (self.epoch % cfg.training.checkpoint_every) == 0:
