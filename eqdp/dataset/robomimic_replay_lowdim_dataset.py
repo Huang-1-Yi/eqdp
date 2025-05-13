@@ -9,7 +9,7 @@ from eqdp.dataset.base_dataset import BaseLowdimDataset, LinearNormalizer
 from eqdp.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 from eqdp.model.common.rotation_transformer import RotationTransformer
 from eqdp.common.replay_buffer import ReplayBuffer
-from eqdp.common.sampler_eqdp import (
+from eqdp.common.sampler_dp import (
     SequenceSampler, get_val_mask, downsample_mask)
 from eqdp.common.normalize_util import (
     robomimic_abs_action_only_normalizer_from_stat,

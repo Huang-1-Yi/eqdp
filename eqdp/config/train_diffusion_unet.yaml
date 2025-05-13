@@ -31,9 +31,11 @@ policy:
     beta_start: 0.0001
     beta_end: 0.02
     beta_schedule: squaredcos_cap_v2
-    variance_type: fixed_small # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
-    clip_sample: True # required when predict_epsilon=False
-    prediction_type: epsilon # or sample
+    variance_type: fixed_small  # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
+    # 每个时间步的噪声方差（β_t）控制着噪声的添加量，而反向过程的方差计算方式直接影响去噪效果
+    # 使用​​预先计算的固定小方差值​​，而非从数据中学习或使用动态调整的方差
+    clip_sample: True           # required when predict_epsilon=False
+    prediction_type: epsilon    # or sample
 
   horizon: ${horizon}
   n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}

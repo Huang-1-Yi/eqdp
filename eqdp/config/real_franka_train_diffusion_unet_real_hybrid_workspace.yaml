@@ -1,0 +1,157 @@
+defaults:
+  - _self_
+  - task: real_franka_box_opening
+
+name: train_diffusion_unet_image_real_franka_box_opening
+_target_: diffusion_policy.workspace.train_diffusion_unet_image_workspace_box.TrainDiffusionUnetImageWorkspace
+
+task_name: ${task.name}
+shape_meta: ${task.shape_meta}
+exp_name: "default"
+
+
+n_obs_steps: 2
+n_action_steps: 8            # 控制频率适配真实电机
+# Franka的1KHz控制频率下，8步动作约对应80ms的决策间隔，但是有插值控制器在，10hz下应该是0.8s？
+horizon: 16                  # 总预测步长平衡实时性与准确性
+n_latency_steps: 0
+dataset_obs_steps: ${n_obs_steps}
+past_action_visible: False
+keypoint_visible_rate: 1.0
+obs_as_global_cond: True
+
+policy:
+  _target_: diffusion_policy.policy.real_franka_diffusion_unet_image_policy.DiffusionUnetImagePolicy
+
+  shape_meta: ${shape_meta}
+  
+  noise_scheduler:
+    _target_: diffusers.schedulers.scheduling_ddim.DDIMScheduler  # 相比DDPM减少采样步数
+    num_train_timesteps: 100                                      # 平衡训练效率与质量
+    beta_start: 0.0001
+    beta_end: 0.02
+    # beta_schedule is important
+    # this is the best we found
+    beta_schedule: squaredcos_cap_v2
+    clip_sample: True
+    set_alpha_to_one: True
+    steps_offset: 0
+    prediction_type: epsilon # or sample
+
+  obs_encoder:
+    _target_: diffusion_policy.model.vision.multi_image_obs_encoder.MultiImageObsEncoder
+    shape_meta: ${shape_meta}
+    rgb_model:
+      _target_: diffusion_policy.model.vision.model_getter.get_resnet
+      name: resnet18
+      weights: null
+    # 视觉处理增强​：处理真实机械臂相机的高分辨率输入（如RealSense），通过随机裁剪模拟视角变化
+    resize_shape: [240, 320]  # 适配真实相机分辨率
+    crop_shape: [216, 288]     # 90%区域避免边缘噪声
+    random_crop: True          # 增强数据多样性
+    use_group_norm: True
+    share_rgb_model: False
+    imagenet_norm: True
+
+  horizon: ${horizon}
+  n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
+  n_obs_steps: ${n_obs_steps}
+  num_inference_steps: 100    # 试试16                              # 实际推理保持高精度
+  # DDIM在保持100训练步的同时，允许后续通过减少推理步数加速（如注释中提到的"试试16"）
+  obs_as_global_cond: ${obs_as_global_cond}
+  # crop_shape: null
+  diffusion_step_embed_dim: 128
+  down_dims: [512, 1024, 2048]
+  kernel_size: 5
+  n_groups: 8
+  cond_predict_scale: True
+
+  # scheduler.step params
+  # predict_epsilon: True
+
+ema:
+  _target_: diffusion_policy.model.diffusion.ema_model.EMAModel
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999
+
+dataloader:
+  batch_size: 64
+  num_workers: 32            # 匹配服务器CPU核心数，假设使用64核服务器，32 workers可充分利用CPU资源
+  shuffle: True
+  pin_memory: True
+  persistent_workers: True   # 减少进程创建开销
+
+val_dataloader:
+  batch_size: 64
+  num_workers: 32
+  shuffle: False
+  pin_memory: True
+  persistent_workers: True
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1.0e-4
+  betas: [0.95, 0.999]
+  eps: 1.0e-8
+  weight_decay: 1.0e-6
+
+training:
+  device: "cuda:1"          # 为多机多卡训练预留接口，避免与基础系统服务争抢cuda:0
+  seed: 42
+  debug: False
+  resume: True
+  # optimization
+  lr_scheduler: cosine
+  lr_warmup_steps: 500
+  num_epochs: 600
+  gradient_accumulate_every: 1
+  # EMA destroys performance when used with BatchNorm
+  # replace BatchNorm with GroupNorm.
+  use_ema: True               # 模型指数移动平均
+  freeze_encoder: False       # 是否冻结编码器freeze encoder during training
+  # 真实场景需模型适应光照变化，故解冻ResNet18的视觉编码层进行微调
+  # training loop control
+  # in epochs
+  rollout_every: 50
+  checkpoint_every: 50
+  val_every: 1
+  sample_every: 5
+  # steps per epoch
+  max_train_steps: null
+  max_val_steps: null
+  # misc
+  tqdm_interval_sec: 1.0
+
+logging:
+  project: diffusion_policy_debug
+  resume: True
+  mode: online
+  name: ${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name} # 时间戳命名，精确追踪真实环境中的策略退化问题，如光照变化导致的性能波动
+  tags: ["${name}", "${task_name}", "${exp_name}"]
+  id: null
+  group: null
+
+checkpoint:   # 真实机器人验证成本高，依赖训练损失选择可用模型
+  topk:
+    monitor_key: train_loss    # 改用训练损失选优
+    mode: min
+    k: 10                      # 保存更多中间结果
+    format_str: 'epoch={epoch:04d}-train_loss={train_loss:.3f}.ckpt'
+  save_last_ckpt: True
+  save_last_snapshot: False
+
+multi_run:
+  run_dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+  wandb_name_base: ${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name}
+
+hydra:
+  job:
+    override_dirname: ${name}
+  run:
+    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+  sweep:
+    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+    subdir: ${hydra.job.num}

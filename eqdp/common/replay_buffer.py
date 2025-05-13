@@ -447,6 +447,11 @@ class ReplayBuffer:
         assert(len(data) > 0)
         is_zarr = (self.backend == 'zarr')
 
+        # ========== 新增调试信息 ==========
+        print(f"[ReplayBuffer] Adding episode with keys: {list(data.keys())}")
+        for key, value in data.items():
+            print(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+
         curr_len = self.n_steps
         episode_length = None
         for key, value in data.items():
@@ -454,10 +459,39 @@ class ReplayBuffer:
             if episode_length is None:
                 episode_length = len(value)
             else:
+                # ========== 增强错误信息 ==========
+                if episode_length != len(value):
+                    raise ValueError(
+                        f"Key {key} has inconsistent length {len(value)} "
+                        f"(expected {episode_length}). "
+                        f"All keys must have the same time dimension.\n"
+                        f"Current keys: {list(data.keys())}\n"
+                        f"Shapes: { {k: v.shape for k, v in data.items()} }"
+                    )
                 assert(episode_length == len(value))
         new_len = curr_len + episode_length
 
+        # ========== 新增存储键检查 ==========
+        existing_keys = set(self.data.keys())
+        new_keys = set(data.keys())
+        print(f"[ReplayBuffer] Existing keys: {existing_keys}")
+        print(f"[ReplayBuffer] New episode keys: {new_keys}")
+
+        # 检查键一致性
+        if len(existing_keys) > 0:
+            missing_keys = existing_keys - new_keys
+            if missing_keys:
+                raise KeyError(
+                    f"Episode is missing keys present in buffer: {missing_keys}")
+
         for key, value in data.items():
+
+            # ========== 新增形状调试 ==========
+            print(f"[ReplayBuffer] Processing key: {key}")
+            print(f"  Current buffer shape: {self.data[key].shape if key in self.data else 'N/A'}")
+            print(f"  New data shape: {value.shape}")
+
+
             new_shape = (new_len,) + value.shape[1:]
             # create array
             if key not in self.data:
@@ -486,6 +520,11 @@ class ReplayBuffer:
             # copy data
             arr[-value.shape[0]:] = value
         
+        # ========== 新增episode统计信息 ==========
+        print(f"[ReplayBuffer] Added episode: length={episode_length}")
+        print(f"Total episodes: {self.n_episodes + 1}")
+        print(f"Total steps: {new_len}")
+        
         # append to episode ends
         episode_ends = self.episode_ends
         if is_zarr:
@@ -504,11 +543,22 @@ class ReplayBuffer:
         is_zarr = (self.backend == 'zarr')
         episode_ends = self.episode_ends[:].copy()
         assert(len(episode_ends) > 0)
+
+        # ========== 新增调试信息 ==========
+        print(f"[ReplayBuffer] Dropping last episode")
+        print(f"Current episodes: {len(episode_ends)}")
+        print(f"Current keys: {list(self.data.keys())}")
+
         start_idx = 0
         if len(episode_ends) > 1:
             start_idx = episode_ends[-2]
         for key, value in self.data.items():
+            
+            # ========== 新增形状记录与输出 ==========
+            original_shape = value.shape
             new_shape = (start_idx,) + value.shape[1:]
+            print(f"  Resized {key}: {original_shape} -> {new_shape}")
+            
             if is_zarr:
                 value.resize(new_shape)
             else:
@@ -517,7 +567,13 @@ class ReplayBuffer:
             self.episode_ends.resize(len(episode_ends)-1)
         else:
             self.episode_ends.resize(len(episode_ends)-1, refcheck=False)
-    
+        
+        # ========== 新增最终状态打印 ==========
+        print(f"Remaining episodes: {len(episode_ends)-1}")
+        print(f"Remaining steps: {start_idx}")
+
+
+
     def pop_episode(self):
         assert(self.n_episodes > 0)
         episode = self.get_episode(self.n_episodes-1, copy=True)

@@ -1,3 +1,5 @@
+# 版本：1.1 新增image累加器、depth累加器、点云累加器、mask累加器、原始时序累加器ObsAccumulator
+
 """
 添加了 ObsAccumulator
 ObsAccumulator 是一个用于按时间顺序累积多源观测数据的工具，其核心作用是为不同传感器或数据源维护独立的时间有序数据序列。以下是关键点解析：
@@ -263,6 +265,430 @@ class TimestampActionAccumulator:
             self.action_buffer[global_idxs] = actions[local_idxs]
             self.timestamp_buffer[global_idxs] = timestamps[local_idxs]
             self.size = max(self.size, this_max_size)
+
+# 图像的时间戳累加器
+class TimestampImageAccumulator:
+    def __init__(self, 
+                 start_time: float,                                      # 开始时间
+                 dt: float,                                              # 时间间隔
+                 eps: float = 1e-5,                                      # 浮点数精度
+                 image_shape: Optional[Tuple[int, int, int]] = None):    # 图像形状
+        """
+        Accumulator for timestamped image data.
+        
+        Args:
+            start_time: Initial time reference
+            dt: Time interval between frames
+            eps: Small epsilon value to handle floating point precision
+            image_shape: Optional expected shape of images (H, W, C). 
+                        If not provided, will be inferred from first input.
+        """
+        self.start_time = start_time         # 开始时间
+        self.dt = dt                         # 时间间隔
+        self.eps = eps                       # 浮点数精度
+        self.image_buffer = None             # 图像缓存
+        self.timestamp_buffer = None         # 时间戳缓存
+        self.next_global_idx = 0             # 下一个全局索引
+        self.image_shape = image_shape       # 图像形状
+    
+    def __len__(self):
+        """Returns number of accumulated frames."""
+        return self.next_global_idx
+
+    @property
+    def images(self):
+        """Returns accumulated images up to current length."""
+        return self.image_buffer[:self.next_global_idx] if self.image_buffer is not None else np.array([])
+
+    @property
+    def actual_timestamps(self):
+        """Returns actual timestamps of accumulated frames."""
+        return self.timestamp_buffer[:self.next_global_idx] if self.timestamp_buffer is not None else np.array([])
+
+    @property
+    def timestamps(self):
+        """Returns ideal timestamps based on start_time and dt."""
+        return self.start_time + np.arange(self.next_global_idx) * self.dt
+
+    def put(self, images: np.ndarray, timestamps: np.ndarray):
+        """Accumulate new images with corresponding timestamps."""
+        # 获取索引信息
+        local_idxs, global_idxs, self.next_global_idx = get_accumulate_timestamp_idxs(
+            timestamps=timestamps,
+            start_time=self.start_time,
+            dt=self.dt,
+            eps=self.eps,
+            next_global_idx=self.next_global_idx
+        )
+
+        if len(global_idxs) > 0:  # 确保有数据
+            # 初始化缓存
+            if self.image_buffer is None:
+                if self.image_shape is None:
+                    self.image_shape = images.shape[1:]
+                elif images.shape[1:] != self.image_shape:
+                    raise ValueError(f"Image shape {images.shape[1:]} doesn't match expected {self.image_shape}")
+                
+                self.image_buffer = np.empty((len(images), *self.image_shape), dtype=images.dtype)
+                self.timestamp_buffer = np.empty((len(timestamps),), dtype=np.float64)
+
+            # 计算新尺寸（扩容时使用 1.5 倍策略）
+            this_max_size = global_idxs[-1] + 1
+            if this_max_size > len(self.timestamp_buffer):
+                new_size = max(this_max_size, int(len(self.timestamp_buffer) * 1.5))
+
+                # 扩容 image_buffer
+                new_shape = (new_size,) + self.image_shape
+                temp_image_buffer = np.empty(new_shape, dtype=self.image_buffer.dtype)
+                temp_image_buffer[:len(self.image_buffer)] = self.image_buffer
+                self.image_buffer = temp_image_buffer
+
+                # 扩容 timestamp_buffer
+                temp_timestamp_buffer = np.empty((new_size,), dtype=np.float64)
+                temp_timestamp_buffer[:len(self.timestamp_buffer)] = self.timestamp_buffer
+                self.timestamp_buffer = temp_timestamp_buffer
+
+            # 写入数据
+            self.image_buffer[global_idxs] = images[local_idxs]
+            self.timestamp_buffer[global_idxs] = timestamps[local_idxs]
+
+    def clear(self):
+            """Clear all accumulated data and reset the accumulator."""
+            self.image_buffer = None
+            self.timestamp_buffer = None
+            self.next_global_idx = 0
+
+# 图像的深度时间戳累加器
+class TimestampDepthAccumulator:
+    def __init__(self, 
+                 start_time: float,
+                 dt: float,
+                 eps: float = 1e-5,
+                 depth_shape: Optional[Tuple[int, int]] = None,
+                 depth_dtype: type = np.float32):
+        """
+        用于深度图像数据的时间戳累加器
+        
+        参数:
+            start_time: 初始时间参考点
+            dt: 帧之间的时间间隔(秒)
+            eps: 处理浮点数精度的小量
+            depth_shape: 可选的深度图像形状 (H, W)
+            depth_dtype: 深度数据的numpy数据类型 (默认np.float32)
+        """
+        self.start_time = start_time
+        self.dt = dt
+        self.eps = eps
+        self.depth_buffer = None  # 深度数据缓存
+        self.timestamp_buffer = None  # 时间戳缓存
+        self.next_global_idx = 0  # 下一个全局索引
+        self.depth_shape = depth_shape  # 深度图像形状
+        self.depth_dtype = depth_dtype  # 深度数据类型
+
+    def __len__(self):
+        """返回已累积的帧数"""
+        return self.next_global_idx
+
+    @property
+    def depths(self):
+        """返回累积的深度图像数据(到当前长度)"""
+        return self.depth_buffer[:self.next_global_idx] if self.depth_buffer is not None else np.array([])
+
+    @property
+    def actual_timestamps(self):
+        """返回实际采集到的时间戳"""
+        return self.timestamp_buffer[:self.next_global_idx] if self.timestamp_buffer is not None else np.array([])
+
+    @property
+    def timestamps(self):
+        """返回基于start_time和dt的理想时间戳序列"""
+        return self.start_time + np.arange(self.next_global_idx) * self.dt
+
+    def put(self, depths: np.ndarray, timestamps: np.ndarray):
+        """
+        累积新的深度图像数据及其对应时间戳
+        
+        参数:
+            depths: 深度图像数组 (N, H, W)
+            timestamps: 对应的时间戳数组 (N,)
+        """
+        # 验证输入
+        if len(depths) != len(timestamps):
+            raise ValueError("depths和timestamps长度必须相同")
+        
+        if depths.ndim != 3:
+            raise ValueError("depths必须是3维数组 (N, H, W)")
+
+        # 获取索引信息
+        local_idxs, global_idxs, self.next_global_idx = get_accumulate_timestamp_idxs(
+            timestamps=timestamps,
+            start_time=self.start_time,
+            dt=self.dt,
+            eps=self.eps,
+            next_global_idx=self.next_global_idx
+        )
+
+        if len(global_idxs) > 0:  # 确保有数据
+            # 初始化缓存
+            if self.depth_buffer is None:
+                if self.depth_shape is None:
+                    self.depth_shape = depths.shape[1:]
+                elif depths.shape[1:] != self.depth_shape:
+                    raise ValueError(f"深度图像形状 {depths.shape[1:]} 与预期 {self.depth_shape} 不匹配")
+                
+                # 初始化缓冲区
+                self.depth_buffer = np.empty((len(depths), *self.depth_shape), dtype=self.depth_dtype)
+                self.timestamp_buffer = np.empty((len(timestamps),), dtype=np.float64)
+
+            # 计算新尺寸 (使用1.5倍扩容策略)
+            this_max_size = global_idxs[-1] + 1
+            if this_max_size > len(self.timestamp_buffer):
+                new_size = max(this_max_size, int(len(self.timestamp_buffer) * 1.5))
+
+                # 扩容深度缓冲区
+                new_shape = (new_size,) + self.depth_shape
+                temp_depth_buffer = np.empty(new_shape, dtype=self.depth_dtype)
+                if self.depth_buffer is not None:
+                    temp_depth_buffer[:len(self.depth_buffer)] = self.depth_buffer
+                self.depth_buffer = temp_depth_buffer
+
+                # 扩容时间戳缓冲区
+                temp_timestamp_buffer = np.empty((new_size,), dtype=np.float64)
+                if self.timestamp_buffer is not None:
+                    temp_timestamp_buffer[:len(self.timestamp_buffer)] = self.timestamp_buffer
+                self.timestamp_buffer = temp_timestamp_buffer
+
+            # 写入数据
+            self.depth_buffer[global_idxs] = depths[local_idxs]
+            self.timestamp_buffer[global_idxs] = timestamps[local_idxs]
+
+    def clear(self):
+        """清除所有累积数据并重置累加器"""
+        self.depth_buffer = None
+        self.timestamp_buffer = None
+        self.next_global_idx = 0
+
+# 新增点云累加器
+class TimestampPointCloudAccumulator:
+    def __init__(self, 
+                 start_time: float,
+                 dt: float,
+                 eps: float = 1e-5,
+                 point_shape: Optional[Tuple[int]] = None,
+                 point_dtype: type = np.float32):
+        """
+        用于点云数据的时间戳累加器
+        
+        参数:
+            start_time: 初始时间参考点
+            dt: 帧之间的时间间隔(秒)
+            eps: 处理浮点数精度的小量
+            point_shape: 可选的点云数据形状 (point_num, 6)
+            point_dtype: 点云数据的numpy数据类型 (默认np.float32)，每个点包含xyz和rgb
+        """
+        self.start_time = start_time
+        self.dt = dt
+        self.eps = eps
+        self.point_buffer = None  # 点云数据缓存 (每帧点云数据：n, 6)
+        self.timestamp_buffer = None  # 时间戳缓存
+        self.next_global_idx = 0  # 下一个全局索引
+        self.point_shape = point_shape  # 每帧点云数据的形状 (点数量, 6)
+        self.point_dtype = point_dtype  # 点云数据类型
+
+    def __len__(self):
+        """返回已累积的帧数"""
+        return self.next_global_idx
+
+    @property
+    def point_clouds(self):
+        """返回累积的点云数据 (到当前长度)"""
+        return self.point_buffer[:self.next_global_idx] if self.point_buffer is not None else np.array([])
+
+    @property
+    def actual_timestamps(self):
+        """返回实际采集到的时间戳"""
+        return self.timestamp_buffer[:self.next_global_idx] if self.timestamp_buffer is not None else np.array([])
+
+    @property
+    def timestamps(self):
+        """返回基于start_time和dt的理想时间戳序列"""
+        return self.start_time + np.arange(self.next_global_idx) * self.dt
+
+    def put(self, point_clouds: np.ndarray, timestamps: np.ndarray):
+        """
+        累积新的点云数据及其对应时间戳
+        
+        参数:
+            point_clouds: 点云数组 (N, P, 6)，其中 P 为每帧的点数量，6 为 [x, y, z, r, g, b]
+            timestamps: 对应的时间戳数组 (N,)
+        """
+        # 验证输入
+        if len(point_clouds) != len(timestamps):
+            raise ValueError("point_clouds和timestamps长度必须相同")
+        
+        if point_clouds.ndim != 3 or point_clouds.shape[2] != 6:
+            raise ValueError("point_clouds必须是3维数组 (N, P, 6)，其中 P 为每帧的点数量，6 为 [x, y, z, r, g, b]")
+        
+        # 获取索引信息
+        local_idxs, global_idxs, self.next_global_idx = get_accumulate_timestamp_idxs(
+            timestamps=timestamps,
+            start_time=self.start_time,
+            dt=self.dt,
+            eps=self.eps,
+            next_global_idx=self.next_global_idx
+        )
+
+        if len(global_idxs) > 0:  # 确保有数据
+            # 初始化缓存
+            if self.point_buffer is None:
+                # 初始化每帧点云的形状
+                if self.point_shape is None:
+                    self.point_shape = point_clouds.shape[1:]  # (P, 6)
+                elif point_clouds.shape[1:] != self.point_shape:
+                    raise ValueError(f"点云数据形状 {point_clouds.shape[1:]} 与预期 {self.point_shape} 不匹配")
+                
+                # 初始化缓冲区
+                self.point_buffer = np.empty((len(point_clouds), *self.point_shape), dtype=self.point_dtype)
+                self.timestamp_buffer = np.empty((len(timestamps),), dtype=np.float64)
+
+            # 计算新尺寸 (使用1.5倍扩容策略)
+            this_max_size = global_idxs[-1] + 1
+            if this_max_size > len(self.timestamp_buffer):
+                new_size = max(this_max_size, int(len(self.timestamp_buffer) * 1.5))
+
+                # 扩容点云缓冲区
+                new_shape = (new_size,) + self.point_shape
+                temp_point_buffer = np.empty(new_shape, dtype=self.point_dtype)
+                if self.point_buffer is not None:
+                    temp_point_buffer[:len(self.point_buffer)] = self.point_buffer
+                self.point_buffer = temp_point_buffer
+
+                # 扩容时间戳缓冲区
+                temp_timestamp_buffer = np.empty((new_size,), dtype=np.float64)
+                if self.timestamp_buffer is not None:
+                    temp_timestamp_buffer[:len(self.timestamp_buffer)] = self.timestamp_buffer
+                self.timestamp_buffer = temp_timestamp_buffer
+
+            # 写入数据
+            self.point_buffer[global_idxs] = point_clouds[local_idxs]
+            self.timestamp_buffer[global_idxs] = timestamps[local_idxs]
+
+    def clear(self):
+        """清除所有累积数据并重置累加器"""
+        self.point_buffer = None
+        self.timestamp_buffer = None
+        self.next_global_idx = 0
+
+# 新增掩膜累加器
+class TimestampMaskAccumulator:
+    def __init__(self, 
+                 start_time: float,
+                 dt: float,
+                 eps: float = 1e-5,
+                 mask_shape: Optional[Tuple[int, int]] = None,
+                 mask_dtype: type = np.uint8):
+        """
+        用于掩膜数据的时间戳累加器
+        
+        参数:
+            start_time: 初始时间参考点
+            dt: 帧之间的时间间隔(秒)
+            eps: 处理浮点数精度的小量
+            mask_shape: 可选的掩膜形状 (H, W)
+            mask_dtype: 掩膜数据的numpy数据类型 (默认np.uint8)
+        """
+        self.start_time = start_time
+        self.dt = dt
+        self.eps = eps
+        self.mask_buffer = None  # 掩膜数据缓存
+        self.timestamp_buffer = None  # 时间戳缓存
+        self.next_global_idx = 0  # 下一个全局索引
+        self.mask_shape = mask_shape  # 掩膜形状
+        self.mask_dtype = mask_dtype  # 数据类型
+
+    def __len__(self):
+        """返回已累积的帧数"""
+        return self.next_global_idx
+
+    @property
+    def masks(self):
+        """返回累积的掩膜数据(到当前长度)"""
+        return self.mask_buffer[:self.next_global_idx] if self.mask_buffer is not None else np.array([], dtype=self.mask_dtype)
+
+    @property
+    def actual_timestamps(self):
+        """返回实际采集到的时间戳"""
+        return self.timestamp_buffer[:self.next_global_idx] if self.timestamp_buffer is not None else np.array([])
+
+    @property
+    def timestamps(self):
+        """返回基于start_time和dt的理想时间戳序列"""
+        return self.start_time + np.arange(self.next_global_idx) * self.dt
+
+    def put(self, masks: np.ndarray, timestamps: np.ndarray):
+        """
+        累积新的掩膜数据及其对应时间戳
+        
+        参数:
+            masks: 掩膜数组 (N, H, W)
+            timestamps: 对应的时间戳数组 (N,)
+        """
+        # 验证输入
+        if len(masks) != len(timestamps):
+            raise ValueError("masks和timestamps长度必须相同")
+        
+        if masks.ndim != 3:
+            raise ValueError("masks必须是3维数组 (N, H, W)")
+
+        # 获取索引信息
+        local_idxs, global_idxs, self.next_global_idx = get_accumulate_timestamp_idxs(
+            timestamps=timestamps.tolist(),
+            start_time=self.start_time,
+            dt=self.dt,
+            eps=self.eps,
+            next_global_idx=self.next_global_idx
+        )
+
+        if len(global_idxs) > 0:  # 确保有数据
+            # 初始化缓存
+            if self.mask_buffer is None:
+                if self.mask_shape is None:
+                    self.mask_shape = masks.shape[1:]
+                elif masks.shape[1:] != self.mask_shape:
+                    raise ValueError(f"掩膜形状 {masks.shape[1:]} 与预期 {self.mask_shape} 不匹配")
+                
+                # 初始化缓冲区
+                self.mask_buffer = np.empty((len(masks), *self.mask_shape), dtype=self.mask_dtype)
+                self.timestamp_buffer = np.empty((len(timestamps),), dtype=np.float64)
+
+            # 计算新尺寸 (使用1.5倍扩容策略)
+            this_max_size = global_idxs[-1] + 1
+            if this_max_size > len(self.timestamp_buffer):
+                new_size = max(this_max_size, int(len(self.timestamp_buffer) * 1.5))
+
+                # 扩容mask缓冲区
+                new_shape = (new_size,) + self.mask_shape
+                temp_mask_buffer = np.empty(new_shape, dtype=self.mask_dtype)
+                if self.mask_buffer is not None:
+                    temp_mask_buffer[:len(self.mask_buffer)] = self.mask_buffer
+                self.mask_buffer = temp_mask_buffer
+
+                # 扩容时间戳缓冲区
+                temp_timestamp_buffer = np.empty((new_size,), dtype=np.float64)
+                if self.timestamp_buffer is not None:
+                    temp_timestamp_buffer[:len(self.timestamp_buffer)] = self.timestamp_buffer
+                self.timestamp_buffer = temp_timestamp_buffer
+
+            # 写入数据
+            self.mask_buffer[global_idxs] = masks[local_idxs]
+            self.timestamp_buffer[global_idxs] = timestamps[local_idxs]
+
+    def clear(self):
+        """清除所有累积数据并重置累加器"""
+        self.mask_buffer = None
+        self.timestamp_buffer = None
+        self.next_global_idx = 0
+
 
 class ObsAccumulator:
     def __init__(self):
