@@ -8,10 +8,10 @@ import scipy.spatial.transform as st
 import numpy as np
 from rtde_control import RTDEControlInterface
 from rtde_receive import RTDEReceiveInterface
-from equi_diffpo.shared_memory.shared_memory_queue import (
+from eqdp.shared_memory.shared_memory_queue import (
     SharedMemoryQueue, Empty)
-from equi_diffpo.shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
-from equi_diffpo.common.pose_trajectory_interpolator import PoseTrajectoryInterpolator
+from eqdp.shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
+from eqdp.common.pose_trajectory_interpolator import PoseTrajectoryInterpolator
 
 class Command(enum.Enum):
     STOP = 0

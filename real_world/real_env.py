@@ -8,14 +8,14 @@ from multiprocessing.managers import SharedMemoryManager
 from real_world.rtde_interpolation_controller import RTDEInterpolationController
 from real_world.multi_realsense import MultiRealsense, SingleRealsense
 from real_world.video_recorder import VideoRecorder
-from equi_diffpo.common.timestamp_accumulator import (
+from eqdp.common.timestamp_accumulator import (
     TimestampObsAccumulator, 
     TimestampActionAccumulator,
     align_timestamps
 )
 from real_world.multi_camera_visualizer import MultiCameraVisualizer
-from equi_diffpo.common.replay_buffer import ReplayBuffer
-from equi_diffpo.common.cv2_util import (
+from eqdp.common.replay_buffer import ReplayBuffer
+from eqdp.common.cv2_util import (
     get_image_transform, optimal_row_cols)
 
 

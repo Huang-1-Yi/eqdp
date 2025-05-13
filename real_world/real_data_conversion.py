@@ -8,10 +8,10 @@ import numcodecs
 import multiprocessing
 import concurrent.futures
 from tqdm import tqdm
-from equi_diffpo.common.replay_buffer import ReplayBuffer, get_optimal_chunks
-from equi_diffpo.common.cv2_util import get_image_transform
+from eqdp.common.replay_buffer import ReplayBuffer, get_optimal_chunks
+from eqdp.common.cv2_util import get_image_transform
 from real_world.video_recorder import read_video
-from equi_diffpo.codecs.imagecodecs_numcodecs import (
+from eqdp.codecs.imagecodecs_numcodecs import (
     register_codecs,
     Jpeg2k
 )

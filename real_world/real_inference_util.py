@@ -1,6 +1,6 @@
 from typing import Dict, Callable, Tuple
 import numpy as np
-from equi_diffpo.common.cv2_util import get_image_transform
+from eqdp.common.cv2_util import get_image_transform
 
 def get_real_obs_dict(
         env_obs: Dict[str, np.ndarray], 

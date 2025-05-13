@@ -1,3 +1,48 @@
+"""
+先用 RobomimicObsConverter 生成观测，
+再用 RobomimicAbsoluteActionConverter 处理动作
+
+
+RobomimicAbsoluteActionConverter
+动作空间转换​​：将相对动作（delta动作）转换为绝对坐标系下的目标位置/姿态。
+- 创建两个环境实例：env（支持delta动作）和 abs_env（绝对动作）
+- 关闭 control_delta 以禁用相对控制
+关键方法
+convert_actions()
+- 解析delta动作序列
+- 通过逆运动学计算绝对目标位姿
+- 保留夹爪开合状态
+evaluate_rollout_error()
+- 对比转换后动作的执行轨迹与原数据的一致性
+- 计算位置/姿态误差
+典型使用场景
+- 将基于相对动作的策略（如PD控制器）迁移到绝对坐标系
+- 验证动作模型在不同控制器下的兼容性
+解决的是动作表示形式的兼容性问题​​，适用于需要精确控制绝对位姿的场景
+
+RobomimicObsConverter
+​​观察空间扩展​​：从状态数据生成包含多模态观察（如图像、深度等）的观测数据。
+- 创建单一环境实例，配置多摄像头（如 birdview, agentview）
+- 指定图像分辨率和传感器类型（RGB/深度）
+关键方法 convert_obs()
+- 从初始状态生成多模态观测
+- 包含RGB图像、深度图等传感器数据
+无显式验证，直接删除不需要的观测（如 del obss['birdview_depth']）
+典型使用场景
+- 为视觉策略（如CNN+强化学习）生成训练所需的观测数据
+- 数据增强或传感器模拟
+解决的是观测信息丰富性问题​​，适用于依赖视觉或其他传感器输入的算法。
+
+绝对动作转换​
+converter = RobomimicAbsoluteActionConverter("dataset.hdf5")
+abs_actions = converter.convert_idx(0)  # 转换第0条演示数据
+
+观察数据生成​
+converter = RobomimicObsConverter("dataset.hdf5")
+obs_dict = converter.convert_idx(0)  # 生成第0条演示的观测
+# obs_dict包含 agentview_image, robot0_eye_in_hand_image 等键
+"""
+
 import numpy as np
 import copy
 
@@ -5,12 +50,12 @@ import h5py
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
-import robomimic.utils.tensor_utils as TensorUtils
+import robomimic.utils.tensor_utils as TensorUtils  # eqdp导入
 from scipy.spatial.transform import Rotation
 
 from robomimic.config import config_factory
 
-
+# ​​动作空间转换​​：将相对动作（delta动作）转换为绝对坐标系下的目标位置/姿态。
 class RobomimicAbsoluteActionConverter:
     def __init__(self, dataset_path, algo_name='bc'):
         # default BC config
@@ -177,6 +222,8 @@ class RobomimicAbsoluteActionConverter:
         }
         return info
 
+# eqdo创建的RobomimicObsConverter
+# ​​观察空间扩展​​：从状态数据生成包含多模态观察（如图像、深度等）的观测数据。
 class RobomimicObsConverter:
     def __init__(self, dataset_path, algo_name='bc'):
         # default BC config

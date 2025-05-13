@@ -1,7 +1,50 @@
+"""
+添加了 ObsAccumulator
+ObsAccumulator 是一个用于按时间顺序累积多源观测数据的工具，其核心作用是为不同传感器或数据源维护独立的时间有序数据序列。以下是关键点解析：
+
+---
+
+**核心功能**
+1. 时间有序存储  
+   • 每个数据源（如摄像头、雷达）用独立键（key）标识，数据按时间戳严格递增存储。
+   • 当新数据的时间戳 `t` 大于该数据源最后记录的时间戳时，才会被添加到列表中，避免旧数据覆盖或乱序。
+
+2. 多源独立管理  
+   • 使用 `defaultdict` 管理多源数据，不同传感器数据独立存储，互不影响。
+   • 例如：`data["camera"]` 和 `data["lidar"]` 分别存储各自的观测值和时间戳。
+
+**与Timestamp版本的区别**
+• TimestampObsAccumulator  
+  将数据对齐到固定时间间隔（`dt`），处理掉帧时可能重复数据，适用于强化学习等需要固定频率输入的场景。
+• ObsAccumulator  
+  更灵活，直接按原始时间戳存储数据，不强制对齐时间网格，适合记录原始观测数据供后续分析或异步处理。
+
+**使用场景示例**
+• 机器人数据记录  
+  摄像头（30Hz）和雷达（10Hz）以不同频率发送数据，ObsAccumulator 分别记录它们的原始数据和时间戳。
+• 异步数据处理  
+  后续算法需要按实际发生时间获取传感器数据（如计算延迟或分析时序关系），ObsAccumulator 提供原始时间序列支持。
+
+**代码关键逻辑**
+```python
+def put(self, data: Dict[str, np.ndarray], timestamps: np.ndarray):
+    for key, value in data.items():
+        for i, t in enumerate(timestamps):
+            if (key not in self.timestamps) or (self.timestamps[key][-1] < t):
+                self.timestamps[key].append(t)
+                self.data[key].append(value[i])
+```
+• 逐时间戳检查：遍历每个数据点的时间戳，仅当时间递增时存储。
+• 多源隔离：不同 `key` 的数据独立维护，避免交叉影响。
+
+**总结**
+ObsAccumulator 是一个轻量级的时间序列数据累积器，专注于按实际发生时间存储多源观测数据，适合需要保留原始时序信息的场景。与基于固定时间窗口的累积器相比，它更灵活，适用于无需强制对齐时间的应用。
+"""
+
 from typing import List, Tuple, Optional, Dict
 import math
 import numpy as np
-
+import collections  # 新增
 
 def get_accumulate_timestamp_idxs(
     timestamps: List[float],  
@@ -220,3 +263,19 @@ class TimestampActionAccumulator:
             self.action_buffer[global_idxs] = actions[local_idxs]
             self.timestamp_buffer[global_idxs] = timestamps[local_idxs]
             self.size = max(self.size, this_max_size)
+
+class ObsAccumulator:
+    def __init__(self):
+        self.data = collections.defaultdict(list)
+        self.timestamps = collections.defaultdict(list)
+    
+    def put(self, data: Dict[str, np.ndarray], timestamps: np.ndarray):
+        """
+        data:
+            key: T,*
+        """
+        for key, value in data.items():
+            for i, t in enumerate(timestamps):
+                if (key not in self.timestamps) or (self.timestamps[key][-1] < t):
+                    self.timestamps[key].append(t)
+                    self.data[key].append(value[i])

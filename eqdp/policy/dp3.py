@@ -49,7 +49,7 @@ import copy
 import time
 import pytorch3d.ops as torch3d_ops
 
-# from equi_diffpo.policy.base_image_policy import BaseImagePolicy
+# from eqdp.policy.base_image_policy import BaseImagePolicy
 from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
 from eqdp.model.common.normalizer import LinearNormalizer
 from eqdp.model.diffusion.dp3_conditional_unet1d import ConditionalUnet1D

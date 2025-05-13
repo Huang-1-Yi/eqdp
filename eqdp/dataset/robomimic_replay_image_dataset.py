@@ -20,7 +20,7 @@ from eqdp.model.common.normalizer import LinearNormalizer, SingleFieldLinearNorm
 from eqdp.model.common.rotation_transformer import RotationTransformer
 from eqdp.codecs.imagecodecs_numcodecs import register_codecs, Jpeg2k
 from eqdp.common.replay_buffer import ReplayBuffer
-from eqdp.common.sampler import SequenceSampler, get_val_mask
+from eqdp.common.sampler_eqdp import SequenceSampler, get_val_mask
 from eqdp.common.normalize_util import (
     robomimic_abs_action_only_normalizer_from_stat,
     robomimic_abs_action_only_dual_arm_normalizer_from_stat,
