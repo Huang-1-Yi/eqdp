@@ -15,7 +15,7 @@ import h5py
 from tqdm import tqdm
 import collections
 import pickle
-from equi_diffpo.common.robomimic_util import RobomimicAbsoluteActionConverter
+from eqdp.common.robomimic_util import RobomimicAbsoluteActionConverter
 
 def worker(x):
     path, idx, do_eval = x

@@ -3,7 +3,7 @@ import torch
 from escnn import gspaces, nn
 from escnn.group import CyclicGroup
 from einops import rearrange, repeat
-from equi_diffpo.model.diffusion.conditional_unet1d import ConditionalUnet1D
+from eqdp.model.diffusion.conditional_unet1d import ConditionalUnet1D
 
 class EquiDiffusionUNet(torch.nn.Module):
     def __init__(self, act_emb_dim, local_cond_dim, global_cond_dim, diffusion_step_embed_dim, down_dims, kernel_size, n_groups, cond_predict_scale, N):

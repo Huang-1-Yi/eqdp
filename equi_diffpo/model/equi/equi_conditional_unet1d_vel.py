@@ -3,8 +3,8 @@ import torch
 from escnn import gspaces, nn
 from escnn.group import CyclicGroup
 from einops import rearrange, repeat
-from equi_diffpo.model.diffusion.conditional_unet1d import ConditionalUnet1D
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
+from eqdp.model.diffusion.conditional_unet1d import ConditionalUnet1D
+from eqdp.model.common.rotation_transformer import RotationTransformer
 
 
 class EquiDiffusionUNetVel(torch.nn.Module):

@@ -1,7 +1,7 @@
-from equi_diffpo.dataset.base_dataset import LinearNormalizer
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.dataset.robomimic_replay_image_dataset import RobomimicReplayImageDataset, normalizer_from_stat
-from equi_diffpo.common.normalize_util import (
+from eqdp.dataset.base_dataset import LinearNormalizer
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.dataset.robomimic_replay_image_dataset import RobomimicReplayImageDataset, normalizer_from_stat
+from eqdp.common.normalize_util import (
     robomimic_abs_action_only_symmetric_normalizer_from_stat,
     get_range_normalizer_from_stat,
     get_range_symmetric_normalizer_from_stat,

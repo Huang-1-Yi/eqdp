@@ -7,11 +7,11 @@ from torchvision import models as vision_models
 from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.policy.base_image_policy import BaseImagePolicy
-from equi_diffpo.common.robomimic_config_util import get_robomimic_config
-from equi_diffpo.model.diffusion.mask_generator import LowdimMaskGenerator
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.policy.base_image_policy import BaseImagePolicy
+from eqdp.common.robomimic_config_util import get_robomimic_config
+from eqdp.model.diffusion.mask_generator import LowdimMaskGenerator
+from eqdp.model.common.rotation_transformer import RotationTransformer
 from robomimic.algo import algo_factory
 from robomimic.algo.algo import PolicyAlgo
 import robomimic.utils.obs_utils as ObsUtils
@@ -22,16 +22,16 @@ try:
         raise ImportError("CropRandomizer is not in robomimic.models.base_nets")
 except ImportError:
     import robomimic.models.obs_core as rmbn
-import equi_diffpo.model.vision.crop_randomizer as dmvc
-from equi_diffpo.common.pytorch_util import dict_apply, replace_submodules
+import eqdp.model.vision.crop_randomizer as dmvc
+from eqdp.common.pytorch_util import dict_apply, replace_submodules
 
 import numpy as np
 import itertools
 from einops import rearrange, repeat
-from equi_diffpo.model.equi.equi_obs_encoder import EquivariantObsEncVoxel
-from equi_diffpo.model.equi.equi_conditional_unet1d_vel import EquiDiffusionUNetVel
+from eqdp.model.equi.equi_obs_encoder import EquivariantObsEncVoxel
+from eqdp.model.equi.equi_conditional_unet1d_vel import EquiDiffusionUNetVel
 # from diffusion_policy.model.equi.equi_conditional_unet1d_2 import D4ConditionalUnet1D
-from equi_diffpo.model.vision.voxel_rot_randomizer_rel import VoxelRotRandomizerRel
+from eqdp.model.vision.voxel_rot_randomizer_rel import VoxelRotRandomizerRel
 
 
 class DiffusionEquiUNetRelPolicyVoxel(BaseImagePolicy):

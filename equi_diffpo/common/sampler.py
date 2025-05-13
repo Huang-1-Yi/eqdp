@@ -1,7 +1,7 @@
 from typing import Optional
 import numpy as np
 import numba
-from equi_diffpo.common.replay_buffer import ReplayBuffer
+from eqdp.common.replay_buffer import ReplayBuffer
 
 
 @numba.jit(nopython=True)

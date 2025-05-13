@@ -1,8 +1,8 @@
 from typing import Dict
 import torch
 import torch.nn as nn
-from equi_diffpo.model.common.module_attr_mixin import ModuleAttrMixin
-from equi_diffpo.model.common.normalizer import LinearNormalizer
+from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
+from eqdp.model.common.normalizer import LinearNormalizer
 
 class BaseLowdimPolicy(ModuleAttrMixin):  
     # ========= inference  ============

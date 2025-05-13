@@ -2,8 +2,8 @@ from typing import Union, Optional, Tuple
 import logging
 import torch
 import torch.nn as nn
-from equi_diffpo.model.diffusion.positional_embedding import SinusoidalPosEmb
-from equi_diffpo.model.common.module_attr_mixin import ModuleAttrMixin
+from eqdp.model.diffusion.positional_embedding import SinusoidalPosEmb
+from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
 
 logger = logging.getLogger(__name__)
 

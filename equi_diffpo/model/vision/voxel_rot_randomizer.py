@@ -9,7 +9,7 @@ from einops import rearrange, repeat
 import math
 from copy import deepcopy
 
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
+from eqdp.model.common.rotation_transformer import RotationTransformer
 
 class VoxelRotRandomizer(nn.Module):
     """

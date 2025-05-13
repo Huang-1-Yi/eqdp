@@ -16,7 +16,7 @@ from tqdm import tqdm
 import numpy as np
 import collections
 import pickle
-from equi_diffpo.common.robomimic_util import RobomimicObsConverter
+from eqdp.common.robomimic_util import RobomimicObsConverter
 
 multiprocessing.set_start_method('spawn', force=True)
 

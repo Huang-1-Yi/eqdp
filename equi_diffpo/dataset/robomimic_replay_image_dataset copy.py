@@ -106,7 +106,6 @@ class RobomimicReplayImageDataset(BaseImageDataset):
             elif type == 'low_dim':
                 lowdim_keys.append(key)
         
-
         # for key in rgb_keys:
         #     replay_buffer[key].compressor.numthreads=1
         # 训练/验证数据拆分
@@ -221,9 +220,6 @@ class RobomimicReplayImageDataset(BaseImageDataset):
                 this_normalizer = get_identity_normalizer_from_stat(stat)
             elif key.endswith('qpos'):
                 this_normalizer = get_range_normalizer_from_stat(stat)
-            # # 
-            # elif key.endswith('object_pos'):
-            #     this_normalizer = get_range_normalizer_from_stat(stat)
             else:
                 raise RuntimeError('unsupported')
             normalizer[key] = this_normalizer

@@ -1,5 +1,5 @@
-from equi_diffpo.model.common.normalizer import SingleFieldLinearNormalizer
-from equi_diffpo.common.pytorch_util import dict_apply, dict_apply_reduce, dict_apply_split
+from eqdp.model.common.normalizer import SingleFieldLinearNormalizer
+from eqdp.common.pytorch_util import dict_apply, dict_apply_reduce, dict_apply_split
 import numpy as np
 
 # 根据统计信息（最大值、最小值等）来生成一个标准化器，将数据线性转换到 [-1, 1] 范围内

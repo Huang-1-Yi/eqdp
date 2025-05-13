@@ -26,11 +26,11 @@ import torch.nn.functional as F
 from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.policy.base_image_policy import BaseImagePolicy
-from equi_diffpo.model.diffusion.conditional_unet1d import ConditionalUnet1D
-from equi_diffpo.model.diffusion.mask_generator import LowdimMaskGenerator
-from equi_diffpo.common.robomimic_config_util import get_robomimic_config
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.policy.base_image_policy import BaseImagePolicy
+from eqdp.model.diffusion.conditional_unet1d import ConditionalUnet1D
+from eqdp.model.diffusion.mask_generator import LowdimMaskGenerator
+from eqdp.common.robomimic_config_util import get_robomimic_config
 from robomimic.algo import algo_factory
 from robomimic.algo.algo import PolicyAlgo
 import robomimic.utils.obs_utils as ObsUtils
@@ -40,9 +40,9 @@ try:
         raise ImportError("CropRandomizer is not in robomimic.models.base_nets")
 except ImportError:
     import robomimic.models.obs_core as rmbn
-import equi_diffpo.model.vision.crop_randomizer as dmvc
-from equi_diffpo.common.pytorch_util import dict_apply, replace_submodules
-from equi_diffpo.model.vision.rot_randomizer import RotRandomizer
+import eqdp.model.vision.crop_randomizer as dmvc
+from eqdp.common.pytorch_util import dict_apply, replace_submodules
+from eqdp.model.vision.rot_randomizer import RotRandomizer
 
 
 class DiffusionUnetHybridImagePolicy(BaseImagePolicy):

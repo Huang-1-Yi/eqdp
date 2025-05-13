@@ -9,16 +9,16 @@ import h5py
 import dill
 import math
 import wandb.sdk.data_types.video as wv
-from equi_diffpo.gym_util.async_vector_env import AsyncVectorEnv
-# from equi_diffpo.gym_util.sync_vector_env import SyncVectorEnv
-from equi_diffpo.gym_util.multistep_wrapper import MultiStepWrapper
-from equi_diffpo.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
+from eqdp.gym_util.async_vector_env import AsyncVectorEnv
+# from eqdp.gym_util.sync_vector_env import SyncVectorEnv
+from eqdp.gym_util.multistep_wrapper import MultiStepWrapper
+from eqdp.gym_util.video_recording_wrapper import VideoRecordingWrapper, VideoRecorder
+from eqdp.model.common.rotation_transformer import RotationTransformer
 
-from equi_diffpo.policy.base_lowdim_policy import BaseLowdimPolicy
-from equi_diffpo.common.pytorch_util import dict_apply
-from equi_diffpo.env_runner.base_lowdim_runner import BaseLowdimRunner
-from equi_diffpo.env.robomimic.robomimic_lowdim_wrapper import RobomimicLowdimWrapper
+from eqdp.policy.base_lowdim_policy import BaseLowdimPolicy
+from eqdp.common.pytorch_util import dict_apply
+from eqdp.env_runner.base_lowdim_runner import BaseLowdimRunner
+from eqdp.env.robomimic.robomimic_lowdim_wrapper import RobomimicLowdimWrapper
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.obs_utils as ObsUtils

@@ -3,7 +3,7 @@ defaults:
   - task: mimicgen_voxel_abs
 
 name: equi_diff_voxel
-_target_: equi_diffpo.workspace.train_equi_workspace.TrainEquiWorkspace
+_target_: eqdp.workspace.train_equi_workspace.TrainEquiWorkspace
 
 shape_meta: ${task.shape_meta}
 exp_name: "default"
@@ -16,11 +16,11 @@ n_action_steps: 8
 n_latency_steps: 0
 dataset_obs_steps: ${n_obs_steps}
 past_action_visible: False
-# dataset: equi_diffpo.dataset.robomimic_replay_image_sym_dataset.RobomimicReplayImageSymDataset
+# dataset: eqdp.dataset.robomimic_replay_image_sym_dataset.RobomimicReplayImageSymDataset
 dataset_path: data/robomimic/datasets/${task_name}/${task_name}_voxel_abs.hdf5
 
 policy:
-  _target_: equi_diffpo.policy.diffusion_equi_unet_voxel_policy.DiffusionEquiUNetPolicyVoxel
+  _target_: eqdp.policy.diffusion_equi_unet_voxel_policy.DiffusionEquiUNetPolicyVoxel
 
   shape_meta: ${shape_meta}
   
@@ -52,7 +52,7 @@ policy:
   # predict_epsilon: True
 
 ema:
-  _target_: equi_diffpo.model.diffusion.ema_model.EMAModel
+  _target_: eqdp.model.diffusion.ema_model.EMAModel
   update_after_step: 0
   inv_gamma: 1.0
   power: 0.75

@@ -4,19 +4,19 @@ import torch.nn.functional as F
 from einops import reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.policy.base_image_policy import BaseImagePolicy
-from equi_diffpo.model.diffusion.mask_generator import LowdimMaskGenerator
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.policy.base_image_policy import BaseImagePolicy
+from eqdp.model.diffusion.mask_generator import LowdimMaskGenerator
+from eqdp.model.common.rotation_transformer import RotationTransformer
 try:
     import robomimic.models.base_nets as rmbn
     if not hasattr(rmbn, 'CropRandomizer'):
         raise ImportError("CropRandomizer is not in robomimic.models.base_nets")
 except ImportError:
     import robomimic.models.obs_core as rmbn
-from equi_diffpo.model.equi.equi_obs_encoder import EquivariantObsEnc
-from equi_diffpo.model.equi.equi_conditional_unet1d import EquiDiffusionUNetSE2
-from equi_diffpo.model.vision.rot_randomizer import RotRandomizer
+from eqdp.model.equi.equi_obs_encoder import EquivariantObsEnc
+from eqdp.model.equi.equi_conditional_unet1d import EquiDiffusionUNetSE2
+from eqdp.model.vision.rot_randomizer import RotRandomizer
 
 
 class DiffusionEquiUNetCNNEncPolicySE2(BaseImagePolicy):

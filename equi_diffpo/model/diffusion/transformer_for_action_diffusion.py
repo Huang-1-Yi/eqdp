@@ -2,9 +2,9 @@ from typing import Union, Optional, Tuple
 import logging
 import torch
 import torch.nn as nn
-from diffusion_policy.model.diffusion.positional_embedding import SinusoidalPosEmb
-from diffusion_policy.model.common.module_attr_mixin import ModuleAttrMixin
-#dp 也没用过
+from eqdp.model.diffusion.positional_embedding import SinusoidalPosEmb
+from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
+# dp 也没用过
 logger = logging.getLogger(__name__)
 
 

@@ -5,10 +5,10 @@ import torch.nn as nn
 import einops
 from einops.layers.torch import Rearrange
 
-from equi_diffpo.model.diffusion.conv1d_components import (
+from eqdp.model.diffusion.conv1d_components import (
     Downsample1d, Upsample1d, Conv1dBlock)
-from equi_diffpo.model.diffusion.positional_embedding import SinusoidalPosEmb
-from equi_diffpo.model.diffusion.conditional_unet1d import ConditionalResidualBlock1D
+from eqdp.model.diffusion.positional_embedding import SinusoidalPosEmb
+from eqdp.model.diffusion.conditional_unet1d import ConditionalResidualBlock1D
 
 logger = logging.getLogger(__name__)
 

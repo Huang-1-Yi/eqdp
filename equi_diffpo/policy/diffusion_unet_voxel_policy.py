@@ -5,19 +5,19 @@ import torch.nn.functional as F
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from einops import reduce, rearrange
 
-from equi_diffpo.model.common.module_attr_mixin import ModuleAttrMixin
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.model.diffusion.mask_generator import LowdimMaskGenerator
-from equi_diffpo.policy.base_image_policy import BaseImagePolicy
-import equi_diffpo.model.vision.crop_randomizer as dmvc
+from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.model.diffusion.mask_generator import LowdimMaskGenerator
+from eqdp.policy.base_image_policy import BaseImagePolicy
+import eqdp.model.vision.crop_randomizer as dmvc
 
-from equi_diffpo.model.vision.voxel_crop_randomizer import VoxelCropRandomizer
+from eqdp.model.vision.voxel_crop_randomizer import VoxelCropRandomizer
 # from diffusion_policy.model.equi.equi_conditional_unet1d import EquiDiffusionUNet
-from equi_diffpo.model.diffusion.conditional_unet1d import ConditionalUnet1D
-from equi_diffpo.model.equi.equi_obs_encoder import InHandEncoder
+from eqdp.model.diffusion.conditional_unet1d import ConditionalUnet1D
+from eqdp.model.equi.equi_obs_encoder import InHandEncoder
 
 # from diffusion_policy.model.equi.equi_conditional_unet1d_2 import D4ConditionalUnet1D
-from equi_diffpo.model.vision.voxel_rot_randomizer import VoxelRotRandomizer
+from eqdp.model.vision.voxel_rot_randomizer import VoxelRotRandomizer
 
 class CNNVoxelEncoder58(torch.nn.Module):
     def __init__(self, obs_channel: int = 4, n_out: int = 128):

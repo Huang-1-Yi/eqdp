@@ -19,13 +19,13 @@ import wandb
 import tqdm
 import numpy as np
 import shutil
-from equi_diffpo.workspace.base_workspace import BaseWorkspace
-from equi_diffpo.policy.act_policy import ACTPolicyWrapper
-from equi_diffpo.dataset.base_dataset import BaseImageDataset
-from equi_diffpo.env_runner.base_image_runner import BaseImageRunner
-from equi_diffpo.common.checkpoint_util import TopKCheckpointManager
-from equi_diffpo.common.json_logger import JsonLogger
-from equi_diffpo.common.pytorch_util import dict_apply, optimizer_to
+from eqdp.workspace.base_workspace import BaseWorkspace
+from eqdp.policy.act_policy import ACTPolicyWrapper
+from eqdp.dataset.base_dataset import BaseImageDataset
+from eqdp.env_runner.base_image_runner import BaseImageRunner
+from eqdp.common.checkpoint_util import TopKCheckpointManager
+from eqdp.common.json_logger import JsonLogger
+from eqdp.common.pytorch_util import dict_apply, optimizer_to
 
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)

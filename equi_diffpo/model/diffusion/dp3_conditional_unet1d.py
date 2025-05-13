@@ -6,9 +6,9 @@ import torch.nn.functional as F
 import einops
 from einops.layers.torch import Rearrange
 from termcolor import cprint
-from equi_diffpo.model.diffusion.conv1d_components import (
+from eqdp.model.diffusion.conv1d_components import (
     Downsample1d, Upsample1d, Conv1dBlock)
-from equi_diffpo.model.diffusion.positional_embedding import SinusoidalPosEmb
+from eqdp.model.diffusion.positional_embedding import SinusoidalPosEmb
 
 
 

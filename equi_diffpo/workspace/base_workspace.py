@@ -131,7 +131,6 @@ class BaseWorkspace:
         return torch.load(open(path, 'rb'), pickle_module=dill)
 
 
-
 def _copy_to_cpu(x):
     if isinstance(x, torch.Tensor):
         return x.detach().to('cpu')

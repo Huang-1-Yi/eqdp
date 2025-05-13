@@ -32,13 +32,13 @@ import shutil
 import time
 import threading
 from hydra.core.hydra_config import HydraConfig
-from equi_diffpo.policy.dp3 import DP3
-from equi_diffpo.dataset.base_dataset import BaseImageDataset
-from equi_diffpo.env_runner.base_image_runner import BaseImageRunner
-from equi_diffpo.common.checkpoint_util import TopKCheckpointManager
-from equi_diffpo.common.pytorch_util import dict_apply, optimizer_to
-from equi_diffpo.model.diffusion.ema_model import EMAModel
-from equi_diffpo.model.common.lr_scheduler import get_scheduler
+from eqdp.policy.dp3 import DP3
+from eqdp.dataset.base_dataset import BaseImageDataset
+from eqdp.env_runner.base_image_runner import BaseImageRunner
+from eqdp.common.checkpoint_util import TopKCheckpointManager
+from eqdp.common.pytorch_util import dict_apply, optimizer_to
+from eqdp.model.diffusion.ema_model import EMAModel
+from eqdp.model.common.lr_scheduler import get_scheduler
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
@@ -517,7 +517,6 @@ class TrainDP3Workspace:
         return str(path.absolute())
     
     @classmethod
-
     def create_from_snapshot(cls, path):
         """
         napshot_path 是保存快照文件的路径，通常是 .pkl 文件。例如，路径可能是 ./snapshots/latest.pkl。

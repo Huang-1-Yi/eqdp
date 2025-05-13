@@ -5,8 +5,8 @@ import zarr
 import numpy as np
 import torch
 import torch.nn as nn
-from equi_diffpo.common.pytorch_util import dict_apply
-from equi_diffpo.model.common.dict_of_tensor_mixin import DictOfTensorMixin
+from eqdp.common.pytorch_util import dict_apply
+from eqdp.model.common.dict_of_tensor_mixin import DictOfTensorMixin
 
 
 class LinearNormalizer(DictOfTensorMixin):

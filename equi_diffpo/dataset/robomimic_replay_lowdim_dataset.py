@@ -4,14 +4,14 @@ import numpy as np
 import h5py
 from tqdm import tqdm
 import copy
-from equi_diffpo.common.pytorch_util import dict_apply
-from equi_diffpo.dataset.base_dataset import BaseLowdimDataset, LinearNormalizer
-from equi_diffpo.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
-from equi_diffpo.common.replay_buffer import ReplayBuffer
-from equi_diffpo.common.sampler import (
+from eqdp.common.pytorch_util import dict_apply
+from eqdp.dataset.base_dataset import BaseLowdimDataset, LinearNormalizer
+from eqdp.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
+from eqdp.model.common.rotation_transformer import RotationTransformer
+from eqdp.common.replay_buffer import ReplayBuffer
+from eqdp.common.sampler import (
     SequenceSampler, get_val_mask, downsample_mask)
-from equi_diffpo.common.normalize_util import (
+from eqdp.common.normalize_util import (
     robomimic_abs_action_only_normalizer_from_stat,
     robomimic_abs_action_only_dual_arm_normalizer_from_stat,
     get_identity_normalizer_from_stat,

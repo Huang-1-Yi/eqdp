@@ -7,7 +7,7 @@ import numpy as np
 from einops import rearrange
 import math
 
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
+from eqdp.model.common.rotation_transformer import RotationTransformer
 
 class RotRandomizerVel(nn.Module):
     """

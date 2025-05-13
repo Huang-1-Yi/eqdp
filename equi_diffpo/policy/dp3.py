@@ -49,16 +49,35 @@ import copy
 import time
 import pytorch3d.ops as torch3d_ops
 
-from equi_diffpo.policy.base_image_policy import BaseImagePolicy
-# from equi_diffpo.model.common.module_attr_mixin import ModuleAttrMixin
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.model.diffusion.dp3_conditional_unet1d import ConditionalUnet1D
-from equi_diffpo.model.diffusion.mask_generator import LowdimMaskGenerator
-from equi_diffpo.common.pytorch_util import dict_apply
-from equi_diffpo.model.vision.pointnet_extractor import DP3Encoder
+# from equi_diffpo.policy.base_image_policy import BaseImagePolicy
+from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.model.diffusion.dp3_conditional_unet1d import ConditionalUnet1D
+from eqdp.model.diffusion.mask_generator import LowdimMaskGenerator
+from eqdp.common.pytorch_util import dict_apply
+from eqdp.model.vision.pointnet_extractor import DP3Encoder
 
+class BasePolicy(ModuleAttrMixin):
+    # init accepts keyword argument shape_meta, see config/task/*_image.yaml
 
-class DP3(BaseImagePolicy):
+    def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        obs_dict:
+            str: B,To,*
+        return: B,Ta,Da
+        """
+        raise NotImplementedError()
+
+    # reset state for stateful policies
+    def reset(self):
+        pass
+
+    # ========== training ===========
+    # no standard training interface except setting normalizer
+    def set_normalizer(self, normalizer: LinearNormalizer):
+        raise NotImplementedError()
+    
+class DP3(BasePolicy):
     def __init__(self, 
             shape_meta: dict,
             noise_scheduler: DDPMScheduler,
@@ -96,7 +115,7 @@ class DP3(BaseImagePolicy):
             action_dim = action_shape[0] * action_shape[1]
         else:
             raise NotImplementedError(f"Unsupported action shape {action_shape}")
-        
+            
         # 解析观察形状元数据
         obs_shape_meta = shape_meta['obs']
         obs_dict = dict_apply(obs_shape_meta, lambda x: x['shape'])
@@ -142,7 +161,7 @@ class DP3(BaseImagePolicy):
             use_mid_condition=use_mid_condition,
             use_up_condition=use_up_condition,
         )
-        
+
         # 将观察特征提取器和模型赋值
         self.obs_encoder = obs_encoder
         self.model = model
@@ -198,10 +217,11 @@ class DP3(BaseImagePolicy):
         # set step values 设置时间步
         scheduler.set_timesteps(self.num_inference_steps)
 
+
         for t in scheduler.timesteps:
             # 1. apply conditioning 应用条件化：取特征图部分，部分预测内容所在掩码：直接删除了无效的图像预测内容
             trajectory[condition_mask] = condition_data[condition_mask]
-
+            
             # 2. predict model output 模型输出
             model_output = model(   sample=trajectory,
                                     timestep=t, 
@@ -212,9 +232,11 @@ class DP3(BaseImagePolicy):
             trajectory = scheduler.step(
                 model_output, t, trajectory, ).prev_sample
             
+                
         # finally make sure conditioning is enforced
         # 确保掩码被执行：得到最新的动作+观测特征图
         trajectory[condition_mask] = condition_data[condition_mask]   
+
 
         return trajectory
 

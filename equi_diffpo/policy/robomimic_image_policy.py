@@ -1,13 +1,13 @@
 from typing import Dict
 import torch
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.policy.base_image_policy import BaseImagePolicy
-from equi_diffpo.common.pytorch_util import dict_apply
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.policy.base_image_policy import BaseImagePolicy
+from eqdp.common.pytorch_util import dict_apply
 
 from robomimic.algo import algo_factory
 from robomimic.algo.algo import PolicyAlgo
 import robomimic.utils.obs_utils as ObsUtils
-from equi_diffpo.common.robomimic_config_util import get_robomimic_config
+from eqdp.common.robomimic_config_util import get_robomimic_config
 
 class RobomimicImagePolicy(BaseImagePolicy):
     def __init__(self, 
@@ -134,7 +134,7 @@ class RobomimicImagePolicy(BaseImagePolicy):
 def test():
     import os
     from omegaconf import OmegaConf
-    cfg_path = os.path.expanduser('~/dev/diffusion_policy/diffusion_policy/config/task/lift_image.yaml')
+    cfg_path = os.path.expanduser('~/dev/eqdp/eqdp/config/task/lift_image.yaml')
     cfg = OmegaConf.load(cfg_path)
     shape_meta = cfg.shape_meta
 

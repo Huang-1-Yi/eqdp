@@ -4,11 +4,11 @@ from escnn import gspaces, nn
 from escnn.group import CyclicGroup
 from einops import rearrange
 from robomimic.models.base_nets import SpatialSoftmax
-from equi_diffpo.model.common.module_attr_mixin import ModuleAttrMixin
-import equi_diffpo.model.vision.crop_randomizer as dmvc
-from equi_diffpo.model.equi.equi_encoder import EquivariantResEncoder76Cyclic, EquivariantVoxelEncoder58Cyclic, EquivariantVoxelEncoder64Cyclic
-from equi_diffpo.model.vision.voxel_crop_randomizer import VoxelCropRandomizer
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
+from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
+import eqdp.model.vision.crop_randomizer as dmvc
+from eqdp.model.equi.equi_encoder import EquivariantResEncoder76Cyclic, EquivariantVoxelEncoder58Cyclic, EquivariantVoxelEncoder64Cyclic
+from eqdp.model.vision.voxel_crop_randomizer import VoxelCropRandomizer
+from eqdp.model.common.rotation_transformer import RotationTransformer
 
 class Identity(torch.nn.Module):
     def __init__(self, *args, **kwargs):

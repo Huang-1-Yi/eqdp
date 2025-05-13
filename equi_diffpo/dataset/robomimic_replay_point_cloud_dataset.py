@@ -24,14 +24,14 @@ from threadpoolctl import threadpool_limits
 import concurrent.futures
 import multiprocessing
 from omegaconf import OmegaConf
-from equi_diffpo.common.pytorch_util import dict_apply
-from equi_diffpo.dataset.base_dataset import BaseImageDataset, LinearNormalizer
-from equi_diffpo.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
-from equi_diffpo.codecs.imagecodecs_numcodecs import register_codecs, Jpeg2k
-from equi_diffpo.common.replay_buffer import ReplayBuffer
-from equi_diffpo.common.sampler import SequenceSampler, get_val_mask
-from equi_diffpo.common.normalize_util import (
+from eqdp.common.pytorch_util import dict_apply
+from eqdp.dataset.base_dataset import BaseImageDataset, LinearNormalizer
+from eqdp.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
+from eqdp.model.common.rotation_transformer import RotationTransformer
+from eqdp.codecs.imagecodecs_numcodecs import register_codecs, Jpeg2k
+from eqdp.common.replay_buffer import ReplayBuffer
+from eqdp.common.sampler import SequenceSampler, get_val_mask
+from eqdp.common.normalize_util import (
     robomimic_abs_action_only_normalizer_from_stat,
     get_range_normalizer_from_stat,
     get_voxel_identity_normalizer,
@@ -62,7 +62,7 @@ class RobomimicReplayPointCloudDataset(BaseImageDataset):
             seed=42,
             val_ratio=0.0,
             n_demo=100,
-            save_dir="/home/hy/equidiff/test/test_output",
+            save_dir="/home/hy/eqdp/test/test_output",
         ):
         """
         初始化数据集类的一些关键参数：

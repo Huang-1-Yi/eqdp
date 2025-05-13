@@ -25,13 +25,13 @@ import wandb
 import tqdm
 import numpy as np
 import shutil
-from equi_diffpo.workspace.base_workspace import BaseWorkspace
-from equi_diffpo.policy.robomimic_image_policy import RobomimicImagePolicy
-from equi_diffpo.dataset.base_dataset import BaseImageDataset
-from equi_diffpo.env_runner.base_image_runner import BaseImageRunner
-from equi_diffpo.common.checkpoint_util import TopKCheckpointManager
-from equi_diffpo.common.json_logger import JsonLogger
-from equi_diffpo.common.pytorch_util import dict_apply, optimizer_to
+from eqdp.workspace.base_workspace import BaseWorkspace
+from eqdp.policy.robomimic_image_policy import RobomimicImagePolicy
+from eqdp.dataset.base_dataset import BaseImageDataset
+from eqdp.env_runner.base_image_runner import BaseImageRunner
+from eqdp.common.checkpoint_util import TopKCheckpointManager
+from eqdp.common.json_logger import JsonLogger
+from eqdp.common.pytorch_util import dict_apply, optimizer_to
 
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
@@ -135,14 +135,13 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                         batch = dict_apply(batch, lambda x: x.to(device, non_blocking=True))
                         if train_sampling_batch is None:
                             train_sampling_batch = batch
-
                         # 使用了 train_on_batch 方法进行训练，在每个批次上计算损失并执行优化
                         # 而不是模型的标准 compute_loss 方法计算损失
                         info = self.model.train_on_batch(batch, epoch=self.epoch)
                         # logging 
                         loss_cpu = info['losses']['action_loss'].item()
                         
-                        
+                        # update learning rate
                         tepoch.set_postfix(loss=loss_cpu, refresh=False)
                         train_losses.append(loss_cpu)
                         step_log = {
@@ -209,6 +208,7 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                         
                         # 实现1：robomimic这段代码显式地重置模型状态，并根据观察数据进行多步动作预测
                         T = gt_action.shape[1]
+
                         pred_actions = list()
                         self.model.reset()
                         for i in range(T):
@@ -228,13 +228,8 @@ class TrainRobomimicImageWorkspace(BaseWorkspace):
                         del obs_dict
                         del gt_action
                         del result
-                        del pred_action
+                        del pred_actions
                         del mse
-
-
-
-
-
 
                 # checkpoint
                 if (self.epoch % cfg.training.checkpoint_every) == 0:

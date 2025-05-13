@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as ttf
-import equi_diffpo.model.common.tensor_util as tu
+import eqdp.model.common.tensor_util as tu
 
 class CropRandomizer(nn.Module):
     """

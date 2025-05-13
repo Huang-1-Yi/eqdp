@@ -2,7 +2,7 @@ from typing import Dict
 
 import torch
 import torch.nn
-from equi_diffpo.model.common.normalizer import LinearNormalizer
+from eqdp.model.common.normalizer import LinearNormalizer
 
 class BaseLowdimDataset(torch.utils.data.Dataset):
     def get_validation_dataset(self) -> 'BaseLowdimDataset':

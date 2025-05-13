@@ -3,8 +3,8 @@ import numbers
 from queue import (Empty, Full)
 from multiprocessing.managers import SharedMemoryManager
 import numpy as np
-from equi_diffpo.shared_memory.shared_memory_util import ArraySpec, SharedAtomicCounter
-from equi_diffpo.shared_memory.shared_ndarray import SharedNDArray
+from eqdp.shared_memory.shared_memory_util import ArraySpec, SharedAtomicCounter
+from eqdp.shared_memory.shared_ndarray import SharedNDArray
 
 
 class SharedMemoryQueue:

@@ -2,7 +2,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 import torchvision.transforms as transforms
 
-from equi_diffpo.model.detr.main import build_ACT_model_and_optimizer, build_CNNMLP_model_and_optimizer
+from eqdp.model.detr.main import build_ACT_model_and_optimizer, build_CNNMLP_model_and_optimizer
 import IPython
 e = IPython.embed
 
@@ -84,10 +84,10 @@ def kl_divergence(mu, logvar):
     return total_kld, dimension_wise_kld, mean_kld
 
 
-from equi_diffpo.policy.base_image_policy import BaseImagePolicy
-from equi_diffpo.model.common.normalizer import LinearNormalizer
-from equi_diffpo.model.common.rotation_transformer import RotationTransformer
-from equi_diffpo.common.pytorch_util import dict_apply
+from eqdp.policy.base_image_policy import BaseImagePolicy
+from eqdp.model.common.normalizer import LinearNormalizer
+from eqdp.model.common.rotation_transformer import RotationTransformer
+from eqdp.common.pytorch_util import dict_apply
 import torch
 from typing import Dict, Tuple
 import numpy as np

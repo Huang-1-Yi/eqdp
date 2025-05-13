@@ -3,9 +3,9 @@ import copy
 import torch
 import torch.nn as nn
 import torchvision
-from equi_diffpo.model.vision.crop_randomizer import CropRandomizer
-from equi_diffpo.model.common.module_attr_mixin import ModuleAttrMixin
-from equi_diffpo.common.pytorch_util import dict_apply, replace_submodules
+from eqdp.model.vision.crop_randomizer import CropRandomizer
+from eqdp.model.common.module_attr_mixin import ModuleAttrMixin
+from eqdp.common.pytorch_util import dict_apply, replace_submodules
 
 
 class MultiImageObsEncoder(ModuleAttrMixin):

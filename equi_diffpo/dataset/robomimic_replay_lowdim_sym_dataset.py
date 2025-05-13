@@ -1,11 +1,11 @@
 from typing import Dict, List
 import torch
 import numpy as np
-from equi_diffpo.common.pytorch_util import dict_apply
-from equi_diffpo.dataset.base_dataset import LinearNormalizer
-from equi_diffpo.dataset.robomimic_replay_lowdim_dataset import RobomimicReplayLowdimDataset, normalizer_from_stat
-from equi_diffpo.common.normalize_util import robomimic_abs_action_only_symmetric_normalizer_from_stat
-from equi_diffpo.common.normalize_util import (
+from eqdp.common.pytorch_util import dict_apply
+from eqdp.dataset.base_dataset import LinearNormalizer
+from eqdp.dataset.robomimic_replay_lowdim_dataset import RobomimicReplayLowdimDataset, normalizer_from_stat
+from eqdp.common.normalize_util import robomimic_abs_action_only_symmetric_normalizer_from_stat
+from eqdp.common.normalize_util import (
     robomimic_abs_action_only_symmetric_normalizer_from_stat,
     get_identity_normalizer_from_stat,
     array_to_stats

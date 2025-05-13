@@ -5,8 +5,8 @@ import torch.nn as nn
 import einops
 from einops.layers.torch import Rearrange
 
-from equi_diffpo.model.equi.conv1d_components import ( Downsample1d, Upsample1d, Conv1dBlock)
-from equi_diffpo.model.equi.positional_embedding import SinusoidalPosEmb
+from eqdp.model.equi.conv1d_components import ( Downsample1d, Upsample1d, Conv1dBlock)
+from eqdp.model.equi.positional_embedding import SinusoidalPosEmb
 
 logger = logging.getLogger(__name__)
 
