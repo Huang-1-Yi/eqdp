@@ -25,6 +25,8 @@ class MultiCameraVisualizer(mp.Process):
         # shared variables
         self.stop_event = mp.Event()
 
+        self.pred = self.realsense.enable_sam2
+
     def start(self, wait=False):
         super().start()
     
@@ -50,11 +52,21 @@ class MultiCameraVisualizer(mp.Process):
         vis_img = None
         while not self.stop_event.is_set():
             vis_data = self.realsense.get_vis(out=vis_data)
-            color = vis_data['color']
+            color = vis_data['color']               # 原始图像
+            if self.pred:
+                color_pred = vis_data['color_pred']     # 预测图像单通道灰度图 (N,H,W)
+            else:
+                color_pred = vis_data['color'] 
+            
             N, H, W, C = color.shape
             assert C == 3
+
+            # mask = color_pred[-1,:,:].copy()
+            # vis_img = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)  # 转换为3通道BGR图像
+            # vis_img = vis_img[:, :, ::-1].copy()  # 转为RGB格式（仅当显示库需要时）
+            # 调整画布尺寸：高度不变，宽度加倍（原始+预测）
             oh = H * self.row
-            ow = W * self.col
+            ow = W * self.col * 2  
             if vis_img is None:
                 vis_img = np.full((oh, ow, 3), 
                     fill_value=self.fill_value, dtype=np.uint8)
@@ -65,10 +77,26 @@ class MultiCameraVisualizer(mp.Process):
                     h_end = h_start + H
                     w_start = W * col
                     w_end = w_start + W
+                    # 预测图像位置（右侧）
+                    w_start_pred = w_end
+                    w_end_pred = w_start_pred + W
+
                     if idx < N:
                         # opencv uses bgr
                         vis_img[h_start:h_end,w_start:w_end
-                            ] = color[idx,:,:,channel_slice]
+                                ] = color[idx,:,:,channel_slice]
+                        # 处理预测图像（单通道灰度图转3通道）
+                        if self.pred:
+                            pred_vis = cv2.cvtColor(color_pred[idx], cv2.COLOR_GRAY2BGR)
+                            pred_vis = cv2.resize(pred_vis, (W, H))
+                            if not self.rgb_to_bgr:  # 如果需要RGB格式
+                                pred_vis = pred_vis[:, :, ::-1].copy()
+                            vis_img[h_start:h_end, w_start_pred:w_end_pred
+                                    ] = pred_vis
+                        else:
+                            vis_img[h_start:h_end, w_start_pred:w_end_pred
+                                    ] = color[idx,:,:,channel_slice]
+
             cv2.imshow(self.window_name, vis_img)
             cv2.pollKey()
             time.sleep(1 / self.vis_fps)

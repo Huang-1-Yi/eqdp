@@ -44,9 +44,16 @@ class Spacemouse(mp.Process):
         self.n_buttons = n_buttons
         # self.motion_event = SpnavMotionEvent([0,0,0], [0,0,0], 0)
         # self.button_state = defaultdict(lambda: False)
+        # self.tx_zup_spnav = np.array([
+        #     [0,0,-1],
+        #     [1,0,0],
+        #     [0,1,0]
+        # ], dtype=dtype)
+        
+        #根据实验室的空间鼠标修改正确的坐标系
         self.tx_zup_spnav = np.array([
-            [0,0,-1],
-            [1,0,0],
+            [0,0,1],
+            [-1,0,0],
             [0,1,0]
         ], dtype=dtype)
 

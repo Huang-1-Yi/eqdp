@@ -1,3 +1,4 @@
+# 已实现保存rgb+mask结果到内存映射文件
 from typing import Optional, Callable, Dict
 import os
 import enum
@@ -7,13 +8,13 @@ import numpy as np
 import pyrealsense2 as rs
 import multiprocessing as mp
 import cv2
-from threadpoolctl import threadpool_limits
-from multiprocessing.managers import SharedMemoryManager
-from eqdp.common.timestamp_accumulator import get_accumulate_timestamp_idxs
-from eqdp.shared_memory.shared_ndarray import SharedNDArray
-from eqdp.shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
-from eqdp.shared_memory.shared_memory_queue import SharedMemoryQueue, Full, Empty
-from real_world.video_recorder import VideoRecorder
+from threadpoolctl                                  import threadpool_limits
+from multiprocessing.managers                       import SharedMemoryManager
+from eqdp.common.timestamp_accumulator              import get_accumulate_timestamp_idxs
+from eqdp.shared_memory.shared_ndarray              import SharedNDArray
+from eqdp.shared_memory.shared_memory_ring_buffer   import SharedMemoryRingBuffer
+from eqdp.shared_memory.shared_memory_queue         import SharedMemoryQueue, Full, Empty
+from real_world.video_recorder                      import VideoRecorder
 
 class Command(enum.Enum):
     SET_COLOR_OPTION = 0
@@ -37,15 +38,33 @@ class SingleRealsense(mp.Process):
             enable_color=True,
             enable_depth=False,
             enable_infrared=False,
+            enable_sam2 = False,
             get_max_k=30,
             advanced_mode_config=None,
             transform: Optional[Callable[[Dict], Dict]] = None,
             vis_transform: Optional[Callable[[Dict], Dict]] = None,
             recording_transform: Optional[Callable[[Dict], Dict]] = None,
             video_recorder: Optional[VideoRecorder] = None,
-            verbose=False
+            verbose=False,
         ):
         super().__init__()
+        
+        # sam2
+        self.enable_sam2 = enable_sam2
+        self.serial_number = serial_number
+        if self.enable_sam2:
+            self.flag = 90
+            if self.serial_number == '241122074919':
+                self.sam_server_address = "tcp://127.0.0.1:4245"
+                print(f"self.serial_number is {self.serial_number},set server address to {self.sam_server_address}")
+            elif self.serial_number == '243522074975':
+                self.sam_server_address = "tcp://127.0.0.1:4246"
+                print(f"self.serial_number is {self.serial_number},set server address to {self.sam_server_address}")
+            elif self.serial_number == '241122306029':
+                self.sam_server_address = "tcp://127.0.0.1:4247"
+                print(f"self.serial_number is {self.serial_number},set server address to {self.sam_server_address}")
+            else:
+                print("Invalid serial number for SAM client. serial ==",serial_number)
 
         if put_fps is None:
             put_fps = capture_fps
@@ -69,7 +88,12 @@ class SingleRealsense(mp.Process):
         examples['camera_receive_timestamp'] = 0.0
         examples['timestamp'] = 0.0
         examples['step_idx'] = 0
-
+        # sam2
+        if self.enable_sam2:
+            examples['color_pred'] = np.empty(
+                shape=shape, dtype=np.uint8)
+            examples['timestamp_pred'] = 0.0
+        
         vis_ring_buffer = SharedMemoryRingBuffer.create_from_examples(
             shm_manager=shm_manager,
             examples=examples if vis_transform is None 
@@ -113,12 +137,6 @@ class SingleRealsense(mp.Process):
 
         # create video recorder
         if video_recorder is None:
-            # realsense uses bgr24 pixel format
-            # default thread_type to FRAEM
-            # i.e. each frame uses one core
-            # instead of all cores working on all frames.
-            # this prevents CPU over-subpscription and
-            # improves performance significantly
             video_recorder = VideoRecorder.create_h264(
                 fps=record_fps, 
                 codec='h264',
@@ -144,6 +162,9 @@ class SingleRealsense(mp.Process):
         self.video_recorder = video_recorder
         self.verbose = verbose
         self.put_start_time = None
+
+        self.color_ts_buffer_path = f"/dev/shm/{self.serial_number}_color_ts.npy"
+        self.index_buffer_path = f"/dev/shm/{self.serial_number}_index.npy"
 
         # shared variables
         self.stop_event = mp.Event()
@@ -202,6 +223,16 @@ class SingleRealsense(mp.Process):
         else:
             return self.ring_buffer.get_last_k(k, out=out)
     
+    
+    
+    
+    
+    def get_sam2(self, k=None, out=None):
+        if k is None:
+            return self.ring_buffer.get(out=out)
+        else:
+            return self.ring_buffer.get_last_k(k, out=out)
+
     def get_vis(self, out=None):
         return self.vis_ring_buffer.get(out=out)
     
@@ -295,7 +326,121 @@ class SingleRealsense(mp.Process):
         if self.enable_infrared:
             rs_config.enable_stream(rs.stream.infrared,
                 w, h, rs.format.y8, fps)
-        
+
+        if self.enable_sam2:
+            ################################ sam2输入 ###############################
+            color_mmap = None
+            timestamp_mmap = None
+            index_mmap = None
+            sam_input_current_index = -1
+            color_ts_dtype = np.dtype([
+                ('timestamp', np.float64),          # 时间戳
+                ('color', np.uint8, (480, 640, 3))  # (h, w, 3)BGR三通道
+            ], align=True)
+            index_dtype = np.dtype([
+                ('index', np.int64), 
+                ('timestamp', np.float64)
+            ], align=True)
+
+            # Create or overwrite memory-mapped files
+
+            if os.path.exists(self.color_ts_buffer_path):
+                print(f"File {self.color_ts_buffer_path} exists, deleting it.")
+                os.remove(self.color_ts_buffer_path)
+            if os.path.exists(self.index_buffer_path):
+                print(f"File {self.index_buffer_path} exists, deleting it.")
+                os.remove(self.index_buffer_path)
+            # 初始化内存映射文件
+            if not os.path.exists(self.color_ts_buffer_path):
+                color_ts_mmap = np.lib.format.open_memmap(
+                    self.color_ts_buffer_path,
+                    dtype=color_ts_dtype,
+                    mode='w+',
+                    shape=(128,)
+                )
+                print(f"创建颜色时间戳缓冲区: {self.color_ts_buffer_path}, shape: {color_ts_mmap.shape}")
+            else:
+                color_ts_mmap = np.load(self.color_ts_buffer_path, mmap_mode='r+')
+                assert color_ts_mmap.dtype == color_ts_dtype, "输入缓冲区数据类型不匹配"
+                assert color_ts_mmap.shape == (128,), "输入缓冲区形状不匹配"
+            if not os.path.exists(self.index_buffer_path):
+                index_mmap = np.lib.format.open_memmap(
+                    self.index_buffer_path,
+                    dtype=index_dtype,
+                    mode='w+',
+                    shape=(1,)
+                )
+                print(f"创建索引缓冲区: {self.index_buffer_path}, shape: {index_mmap.shape}")
+            else:
+                index_mmap = np.load(self.index_buffer_path, mmap_mode='r+')
+                assert index_mmap.dtype == index_dtype, "索引缓冲区数据类型不匹配"
+                assert index_mmap.shape == (1,), "索引缓冲区形状不匹配"
+            # 定义输入索引
+            sam_input_current_index = -1
+            
+            ################################ sam2输出 ###############################
+
+            mask_ts_path = f"/dev/shm/{self.serial_number}_mask_ts.npy"
+            mask_index_path = f"/dev/shm/{self.serial_number}_mask_index.npy"
+            print(f"内存映射文件路径: {mask_ts_path}, {mask_index_path}")
+
+            # 定义合并后的数据结构
+            mask_ts_dtype = np.dtype([
+                ('timestamp', np.float64),   # 单通道mask尺寸
+                ('mask', np.uint8, (h, w))
+            ], align=True)
+            mask_index_dtype = np.dtype([
+                ('index', np.int64), 
+                ('timestamp', np.float64)
+            ], align=True)
+
+            # 加载合并后的内存映射文件路径
+            if not os.path.exists(mask_ts_path):
+                print(f"请先创建内存映射文件: {mask_ts_path}")
+            if not os.path.exists(mask_index_path):
+                print(f"请先创建内存映射文件: {mask_index_path}")
+            mask_ts_mmap = np.load(
+                mask_ts_path, 
+                mmap_mode='r'# 如果文件不存在，则创建新的
+
+            )
+            mask_index_mmap = np.load(
+                mask_index_path,
+                mmap_mode='r'# 必须r+模式才能同步？no，将r+改r只读模式，加速25%读取速度
+                
+            )
+            # 验证合并后的数据结构
+            assert mask_ts_mmap.dtype == mask_ts_dtype, "合并缓冲区数据类型不匹配"
+            assert mask_ts_mmap.shape == (128,), "合并缓冲区形状不匹配"
+            assert mask_index_mmap.dtype == mask_index_dtype, "索引缓冲区数据类型不匹配"
+            assert mask_index_mmap.shape == (1,), "索引缓冲区形状不匹配"
+            
+            ################################ sam2输出读取 ###############################
+            def read_sam2_data():
+                # 原子读取索引
+                index_entry = np.copy(mask_index_mmap[0])
+                current_idx = index_entry['index']
+                read_timestamp = index_entry['timestamp']
+
+                # 使用双重校验保证数据一致性
+                data_entry = mask_ts_mmap[current_idx]
+                if data_entry['timestamp'] == read_timestamp:
+                    timestamp = data_entry['timestamp']
+                    mask = np.copy(data_entry['mask'])
+                else:
+                    try:
+                        print(f"数据不一致，当前索引: {current_idx}, 当前时间戳: {read_timestamp}, 数据时间戳: {data_entry['timestamp']}")
+                        # 回退机制：直接使用索引中的时间戳
+                        prev_idx = current_idx-1 if current_idx > 0 else 127
+                        timestamp = mask_ts_mmap[prev_idx]['timestamp']
+                        mask = np.copy(mask_ts_mmap[prev_idx]['mask'])
+                        print(f"尝试回退，当前索引: {prev_idx}, 当前时间戳: {read_timestamp}, 数据时间戳: {timestamp}")
+                    except Exception as e:
+                        print(f"读取失败: Error reading from memory map: {e}")
+                        # 添加异常恢复机制
+                        mask = np.zeros((h, w), dtype=np.uint8)
+                return mask, timestamp, current_idx
+
         try:
             rs_config.enable_device(self.serial_number)
 
@@ -365,6 +510,44 @@ class SingleRealsense(mp.Process):
                     data['infrared'] = np.asarray(
                         frameset.get_infrared_frame().get_data())
                 
+                if self.enable_sam2:
+                    # 先写入再读取
+                    try:
+                        # 原子化操作：读取当前最新索引
+                        sam_input_current_index += 1
+                        sam_input_current_index = (sam_input_current_index) % 128
+                        
+                        # 1. 先写入数据缓冲区, 原子化操作
+                        # 强制持久化避免缓存: /dev/shm是内存文件系统，fsync会强制刷盘，完全违背共享内存设计初衷_os.fsync(color_mmap._mmap.fileno())
+                        entry = np.array(
+                            ( data['camera_capture_timestamp'], data['color']),
+                            dtype=color_ts_dtype
+                        )
+                        color_ts_mmap[sam_input_current_index] = entry
+                        color_ts_mmap.flush()       # 先刷新数据
+                        
+                        # 2. 最后更新索引
+                        new_entry = np.array(
+                            (sam_input_current_index, data['camera_capture_timestamp']), 
+                            dtype=index_dtype
+                        )
+                        index_mmap[0] = new_entry   # 写入新索引
+                        index_mmap.flush()          # 最后刷新索引
+                    except Exception as e:
+                        print(f"写入失败: Error writing to memory map: {e}")
+                        # 添加异常恢复机制
+                        sam_input_current_index = (sam_input_current_index + 127) % 128  # 回滚索引
+                    
+                    if index_mmap is not None:
+                        mask, timestamp, newest_idx = read_sam2_data()
+                        # 优化方案（保持单通道） 效果：减少约15%的CPU占用，消除OpenCV转换开销
+                        data['color_pred'] = mask.copy()  # 下游按需转换
+                        data['timestamp_pred'] = timestamp
+                    else:
+                        data['color_pred'] = np.zeros((h, w), dtype=np.uint8)
+                        data['timestamp_pred'] = data['camera_capture_timestamp']
+                    
+                
                 # apply transform
                 put_data = data
                 if self.transform is not None:
@@ -377,11 +560,7 @@ class SingleRealsense(mp.Process):
                             timestamps=[receive_time],
                             start_time=put_start_time,
                             dt=1/self.put_fps,
-                            # this is non in first iteration
-                            # and then replaced with a concrete number
                             next_global_idx=put_idx,
-                            # continue to pump frames even if not started.
-                            # start_time is simply used to align timestamps.
                             allow_negative=True
                         )
 
@@ -389,7 +568,6 @@ class SingleRealsense(mp.Process):
                         put_data['step_idx'] = step_idx
                         # put_data['timestamp'] = put_start_time + step_idx / self.put_fps
                         put_data['timestamp'] = receive_time
-                        # print(step_idx, data['timestamp'])
                         self.ring_buffer.put(put_data, wait=False)
                 else:
                     step_idx = int((receive_time - put_start_time) * self.put_fps)
@@ -446,9 +624,6 @@ class SingleRealsense(mp.Process):
                         option = rs.option(command['option_enum'])
                         value = float(command['option_value'])
                         sensor.set_option(option, value)
-                        # print('auto', sensor.get_option(rs.option.enable_auto_exposure))
-                        # print('exposure', sensor.get_option(rs.option.exposure))
-                        # print('gain', sensor.get_option(rs.option.gain))
                     elif cmd == Command.SET_DEPTH_OPTION.value:
                         sensor = pipeline_profile.get_device().first_depth_sensor()
                         option = rs.option(command['option_enum'])
@@ -462,8 +637,6 @@ class SingleRealsense(mp.Process):
                         self.video_recorder.start(video_path, start_time=start_time)
                     elif cmd == Command.STOP_RECORDING.value:
                         self.video_recorder.stop()
-                        # stop need to flush all in-flight frames to disk, which might take longer than dt.
-                        # soft-reset put to drop frames to prevent ring buffer overflow.
                         put_idx = None
                     elif cmd == Command.RESTART_PUT.value:
                         put_idx = None
@@ -475,6 +648,14 @@ class SingleRealsense(mp.Process):
             self.video_recorder.stop()
             rs_config.disable_all_streams()
             self.ready_event.set()
+            if self.enable_color:
+                    # Ensure all data is flushed
+                    if color_mmap is not None:
+                        color_mmap.flush()
+                    if timestamp_mmap is not None:
+                        timestamp_mmap.flush()
+                    if index_mmap is not None:
+                        index_mmap.flush()
         
         if self.verbose:
             print(f'[SingleRealsense {self.serial_number}] Exiting worker process.')

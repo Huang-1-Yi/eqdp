@@ -16,12 +16,12 @@ import numpy as np
 import time
 import shutil
 import math
-from multiprocessing.managers import SharedMemoryManager
-from diffusion_policy.real_world.franka_interpolation_controller import FrankaInterpolationController
+from multiprocessing.managers                       import SharedMemoryManager
+from real_world.franka_interpolation_controller     import FrankaInterpolationController
 
-from diffusion_policy.real_world.multi_realsense import MultiRealsense, SingleRealsense
-from diffusion_policy.real_world.video_recorder import VideoRecorder
-from diffusion_policy.common.timestamp_accumulator import (
+from real_world.multi_realsense                     import MultiRealsense, SingleRealsense
+from real_world.video_recorder                      import VideoRecorder
+from eqdp.common.timestamp_accumulator              import (
     TimestampObsAccumulator, 
     TimestampActionAccumulator,
     align_timestamps,
@@ -31,21 +31,20 @@ from diffusion_policy.common.timestamp_accumulator import (
     TimestampPointCloudAccumulator
 )
 
-from diffusion_policy.real_world.multi_camera_visualizer import MultiCameraVisualizer
-from diffusion_policy.common.replay_buffer import ReplayBuffer
-from diffusion_policy.common.cv2_util import (
-    get_image_transform, optimal_row_cols)
+from real_world.multi_camera_visualizer             import MultiCameraVisualizer
+from eqdp.common.replay_buffer                      import ReplayBuffer
+from eqdp.common.cv2_util                           import (get_image_transform, optimal_row_cols)
 
 import psutil # 内存显示
 import cv2
 
-DEFAULT_OBS_KEY_MAP = {    # 默认观测键映射     建立观测键和键映射的关系
-    'ActualTCPPose': 'robot_eef_pose',    # 实际TCP姿势 机器人末端执行器姿势 
-    'ActualQ': 'robot_joint',             # 实际Q 机器人关节
-    'ActualQd': 'robot_joint_vel',        # 实际Qd 机器人关节速度
-    'ActualGripperstate': 'robot_gripper',# 新增,与gripper不同,这个是夹爪状态             
-    'step_idx': 'step_idx',               # 步骤索引    
-    'timestamp': 'timestamp'              # 时间戳
+DEFAULT_OBS_KEY_MAP = {    # 默认观测键映射                 建立观测键和键映射的关系
+    'ActualTCPPose': 'robot_eef_pose',                  # 实际TCP姿势 机器人末端执行器姿势 
+    'ActualQ': 'robot_joint',                           # 实际Q 机器人关节
+    'ActualQd': 'robot_joint_vel',                      # 实际Qd 机器人关节速度
+    'ActualGripperstate': 'robot_gripper',              # 新增,与gripper不同,这个是夹爪状态             
+    'step_idx': 'step_idx',                             # 步骤索引    
+    'timestamp': 'timestamp'                            # 时间戳
 }
 class RealEnvFranka:
     def __init__(self, 

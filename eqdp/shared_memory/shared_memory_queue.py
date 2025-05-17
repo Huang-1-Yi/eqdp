@@ -39,7 +39,9 @@ class SharedMemoryQueue:
         self.write_counter = write_counter
         self.read_counter = read_counter
         self.shared_arrays = shared_arrays
-    
+        # 新增的代码
+        self.shm_manager = shm_manager  # 保存以便动态分配
+
     @classmethod
     def create_from_examples(cls, 
             shm_manager: SharedMemoryManager,
@@ -87,6 +89,7 @@ class SharedMemoryQueue:
     def clear(self):
         self.read_counter.store(self.write_counter.load())
     
+    # 严格静态的实现，要求所有键预先定义，适合键固定的场景
     def put(self, data: Dict[str, Union[np.ndarray, numbers.Number]]):
         read_count = self.read_counter.load()
         write_count = self.write_counter.load()
@@ -107,7 +110,45 @@ class SharedMemoryQueue:
 
         # update idx
         self.write_counter.add(1)
-    
+
+    # # 动态键扩展提高灵活性，但可能引入运行时开销和潜在类型/形状不一致的风险
+    # def put(self, data: Dict[str, Union[np.ndarray, numbers.Number]]):
+    #     read_count = self.read_counter.load()
+    #     write_count = self.write_counter.load()
+    #     n_data = write_count - read_count
+    #     if n_data >= self.buffer_size:
+    #         raise Full()
+        
+    #     next_idx = write_count % self.buffer_size
+
+    #     # write to shared memory
+    #     for key, value in data.items():
+    #         if key not in self.shared_arrays:
+    #             # 动态分配新键的内存
+    #             if isinstance(value, np.ndarray):
+    #                 spec = ArraySpec(name=key, shape=value.shape, dtype=value.dtype)
+    #             elif isinstance(value, numbers.Number):
+    #                 spec = ArraySpec(name=key, shape=(), dtype=np.dtype(type(value)))
+    #             else:
+    #                 raise TypeError(f"Unsupported value type {type(value)} for key '{key}'")
+
+    #             array = SharedNDArray.create_from_shape(
+    #                 mem_mgr=self.shm_manager,
+    #                 shape=(self.buffer_size,) + spec.shape,
+    #                 dtype=spec.dtype
+    #             )
+    #             self.shared_arrays[key] = array
+            
+    #         arr: np.ndarray = self.shared_arrays[key].get()
+    #         if isinstance(value, np.ndarray):
+    #             arr[next_idx] = value
+    #         else:
+    #             arr[next_idx] = np.array(value, dtype=arr.dtype)
+
+    #     # update idx
+    #     self.write_counter.add(1)
+
+
     def get(self, out=None) -> Dict[str, np.ndarray]:
         write_count = self.write_counter.load()
         read_count = self.read_counter.load()
@@ -185,3 +226,10 @@ class SharedMemoryQueue:
             result[spec.name] = np.empty(
                 shape=shape, dtype=spec.dtype)
         return result
+
+    # 添加高效清空方法
+    def clear(self):
+        """原子操作清空队列"""
+        write_count = self.write_counter.load()
+        # 直接将读指针同步到写指针位置
+        self.read_counter.store(write_count)
